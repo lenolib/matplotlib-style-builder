@@ -60,10 +60,12 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class_properties = {
-    matplotlib.lines.Line2D: ['linewidth', 'label', 'alpha', 'linestyle'],
-
-}
+supported_classes = [
+    matplotlib.lines.Line2D,
+    matplotlib.axes.Axes,
+    matplotlib.axis.Axis,
+    matplotlib.figure.Figure,
+]
 
 from collections import OrderedDict
 
@@ -75,6 +77,16 @@ linestyle_dict =  OrderedDict([
     ('draw nothing', 'None'),
 ])
 
+from matplotlib.markers import MarkerStyle
+markernames_inverted = {
+    "{} ('{}')".format(v,k): k for (k, v) in MarkerStyle.markers.iteritems()
+}
+markernames_inverted['nothing'] = 'None'  
+
+def left_partial(fn, *partial_args, **kwargs):
+    def inner(*call_args):
+        return fn(*(call_args + partial_args), **kwargs)
+    return inner
 
 property_2_widget_factory = {
     'alpha': lambda obj: slider_for_object(
@@ -83,31 +95,31 @@ property_2_widget_factory = {
     ),
     'linewidth' : lambda obj: slider_for_object(obj, 'Line width', 0, 10),
     'label': lambda obj: text_for_object(obj, 'Label'),
+    'title': lambda obj: text_for_object(obj, 'Title'),
     'linestyle': lambda obj: choice_combobox(obj, 'Line style', linestyle_dict),
-    'drawstyle': lambda obj: choice_combobox(obj, 'Draw style',
-                                             ['default', 'steps', 'steps-pre',
-                                              'steps-mid', 'steps-post'])
+    'drawstyle': lambda obj: choice_combobox(obj, 'Draw style', obj.drawStyleKeys),
+    'markersize': lambda obj: slider_for_object(obj, 'Marker size', 0, 16),
+    'marker': lambda obj: choice_combobox(obj, 'Marker', markernames_inverted),
+    'figheight': lambda obj: slider_for_object(obj, 'Figure height', 1, 40,
+                                               prop='figheight'),
+    'dpi': lambda obj: slider_for_object(obj, 'Dots-per-inch', 1, 240,
+                                         prop='dpi')
 }
+property_order = [
+    'label',
+    'title',
+    'linewidth',
+    'linestyle',
+    'marker',
+    'markersize',
+    'drawstyle',
+    'figheight',
+    'dpi',
+    'alpha',
+    ]
 
-
-class Customizer(object):
-    def __init__(self):
-        self.main_widget = QWidget()
-        self.layout = QVBoxLayout()
-        self.main_widget.setLayout(self.layout)
-        self.tree = QTreeWidget()
-        self.layout.addWidget(self.tree)
-        self.prop_frame = QWidget()
-        self.layout.addWidget(self.prop_frame)
-
-        self.prop_layout = QVBoxLayout()
-        self.prop_frame.setLayout(self.prop_layout)
-
-        self.slider = new_slider('fooval')
-        self.frame = QFrame()
-        self.frame.setLayout(self.slider[-1])
-        self.layout.addWidget(self.frame)
-
+if len(property_2_widget_factory) != len(property_order):
+    raise AssertionError('forgot to add to property_order?')
 
 
 def test():
@@ -123,8 +135,12 @@ def test():
     ax = series.plot()
     tree = Tree()
     tree.new_tree({
-        'hej':ax.lines[0],
+        'hej':ax.figure,
         'toplevel_dt': datetime.utcnow(),
+        'dic': {'hej': datetime.utcnow(),
+                'yo': 'tjataj',
+                'sub': {'hej': datetime.utcnow(), 'yo': 'tjataj'}
+            },
     })
     return tree, ax
 
@@ -147,7 +163,7 @@ class Tree(QWidget):
                 top_item,
                 item_obj,
                 prefix='<b>{}</b> : '.format(name),
-                expand_objects=False
+                expand_n_levels=1
             )
 
         if isinstance(obj, dict):
@@ -167,6 +183,7 @@ class Tree(QWidget):
         if hasattr(self.last_selected, 'prop_widget'):
             self.last_selected.prop_widget.hide()
         selected = self.tw.selectedItems()
+        logger.debug('Selected %s', selected)
         if len(selected) > 1:
             logger.debug('multiple items selected - no action')
             return
@@ -184,7 +201,6 @@ class Tree(QWidget):
                 return
 
 
-
 def expand_tree_item(item, col):
     if hasattr(item, 'target_obj'):
         obj = item.target_obj
@@ -195,48 +211,48 @@ def expand_tree_item(item, col):
         logger.debug('Item is already expanded {}'.format(str(obj)[:100]))
     else:
         logger.debug('Expanding %s on tree item %s', obj, item)
-        for attrname in dir(obj):
-            if attrname.startswith('_'):
-                continue
-            populate_tree_item(
-                item,
-                getattr(obj, attrname),
-                text_already_set=True,
-                expand_objects=False,
-            )
+#         for attrname in dir(obj):
+#             if attrname.startswith('_'):
+#                 continue
+        populate_tree_item(
+            item,
+            item.target_obj,
+            text_already_set=True,
+            expand_n_levels=1,
+        )
 
 
 def create_prop_widgets(obj):
     # Add property-widget children if supported class
-    if type(obj) not in class_properties:
+    if type(obj) not in supported_classes:
         return None
     container_widget = QFrame()
     container_widget.setLayout( QVBoxLayout() )
-    props = class_properties.get(type(obj), [])
-    if props:
-        widget_factories = itemgetter(*props)(property_2_widget_factory)
-        for factory in widget_factories:
+    for propname, factory in property_2_widget_factory.iteritems():
+        if hasattr(obj, 'get_' + propname):
             container_widget.layout().addWidget(factory(obj))
+        else:
+            continue
+            
     return container_widget
 
 
 def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
-                       expand_objects=True, curr_depth=0):
+                       expand_n_levels=1, curr_depth=0):
     logger.debug('Populating from obj: %s', obj)
     if not text_already_set:
         text = format_obj(obj, prefix)
         tree_item.treeWidget().setItemWidget(tree_item, 0, QLabel(text))
         logger.debug('Setting text label: %s', text)
 
-    if curr_depth > 3:
-        print('hit depth limit')
+    if curr_depth >= expand_n_levels:
+        logger.debug('Not expanding further/deeper')
         return
     elif isinstance(obj, (tuple, list, dict)):
         if isinstance(obj, dict):
             item_iter = sorted(obj.items())
         else:
             item_iter = enumerate(obj)
-
         for key, item in item_iter:
             child_item = QTreeWidgetItem()
             child_item.target_obj = item
@@ -245,8 +261,8 @@ def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
                                item,
                                prefix='<b>{}</b> : '.format(key),
                                curr_depth=curr_depth + 1,
-                               expand_objects=False)
-    elif expand_objects:
+                               expand_n_levels=expand_n_levels)
+    elif expand_n_levels > 0:
         logger.debug('%s: recursing into %s', tree_item.target_obj, obj)
         for attrname in dir(obj):
             if attrname.startswith('_'):
@@ -259,9 +275,8 @@ def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
                 child_item,
                 item,
                 prefix='<b>{}</b> : '.format(attrname),
-                expand_objects=False,
+                expand_n_levels=expand_n_levels,
                 curr_depth=curr_depth + 1
-#                 text_already_set=False
             )
     else:
         child_item = QTreeWidgetItem()
@@ -277,9 +292,19 @@ def deduce_getter_setter(obj, text, prop, getter, setter):
     return getter, setter
 
 
-def get_axes_from_object(obj):
-    if hasattr(obj, 'axes'):
-        return obj.axes
+def redraw_canvas_through_object(obj):
+    if hasattr(obj, 'canvas'):
+        canvas = obj.canvas
+    elif hasattr(obj, 'axes'):
+        canvas = obj.axes.figure.canvas
+    elif hasattr(obj, 'figure'):
+        canvas = obj.figure.canvas
+    else:
+        logging.warning('Could not find canvas through obj. '
+                        'Using gcf() to get figure canvas '
+                        '(might not be correct)')
+        canvas = plt.gcf().canvas
+    canvas.draw_idle()
 
 
 def text_for_object(obj, text, prop=None, getter=None, setter=None):
@@ -293,7 +318,7 @@ def text_for_object(obj, text, prop=None, getter=None, setter=None):
     lineedit.setText(getter())
     def update(text):
         setter(text)
-        get_axes_from_object(obj).figure.canvas.draw_idle()
+        redraw_canvas_through_object(obj)
 
     lineedit.textChanged.connect(update)
     return obj_widget
@@ -307,7 +332,7 @@ def slider_for_object(obj, text, min, max, prop=None, getter=None, setter=None):
 
     def update(value):
         setter(value / 100)
-        get_axes_from_object(obj).figure.canvas.draw_idle()
+        redraw_canvas_through_object(obj)
     slider.setValue(getter() * 100)
     slider.setMinimum(min * 100)
     slider.setMaximum(max * 100)
@@ -338,7 +363,7 @@ def choice_combobox(obj, text, choices, prop=None, getter=None, setter=None):
                           choices)
             return
         setter(choices[new_choice])
-        get_axes_from_object(obj).figure.canvas.draw_idle()
+        redraw_canvas_through_object(obj)
 
     combobox.currentIndexChanged.connect(update)
     return obj_widget
