@@ -81,7 +81,7 @@ from matplotlib.markers import MarkerStyle
 markernames_inverted = {
     "{} ('{}')".format(v,k): k for (k, v) in MarkerStyle.markers.iteritems()
 }
-markernames_inverted['nothing'] = 'None'  
+markernames_inverted['nothing'] = 'None'
 
 def left_partial(fn, *partial_args, **kwargs):
     def inner(*call_args):
@@ -143,6 +143,62 @@ def test():
             },
     })
     return tree, ax
+
+
+from numbers import Number
+def get_rcparams_types(rc, rcfile):
+    rc = dict(mpl.rcParams)
+    helps = scrape_help_for_param(rcfile)
+    for k,v in rc.iteritems():
+        if isinstance(v, bool):
+            rc[k] = {'type': 'bool', 'default': v}
+        elif isinstance(v, Number):
+            rc[k] = {'type': 'float', 'default': v}
+        elif isinstance(v, basestring):
+            rc[k] = {'type': 'colorstring' if 'color' in k else 'string',
+                     'default': v,
+                     'options': []}
+        elif isinstance(v, list):
+            list_type = 'float' if (v and isinstance(v[0], Number)) else 'string'
+            rc[k] = {'type': 'list', 'list_type': list_type, 'default': v}
+        elif v is None:
+            rc[k] = {'type': None, 'default': v}
+        else:
+            rc[k] = {'type': 'string', 'default': v}
+        if k in helps:
+            rc[k]['help'] = helps[k]
+    return rc
+
+
+from collections import defaultdict, OrderedDict
+def categorize_rc_params(rc):
+    by_category = defaultdict(OrderedDict)
+    for key, val in rc.iteritems():
+        by_category[ key.split('.')[0] ][key] = val
+    return by_category
+
+
+def scrape_help_for_param(rcfile):
+    with open(rcfile) as fh:
+        contents = fh.read()
+    wo_comments = re.sub(r'^#[# \n].*', '', contents, flags=re.MULTILINE)
+    wo_lead_hash = re.sub(r'^#', r'\n', wo_comments, flags=re.M)
+    raw_param_lines = filter(
+        None,
+        wo_lead_hash.split('\n\n')
+    )
+    helps = {}
+    for line in raw_param_lines:
+        parts = filter(None, line.split('#'))
+        param = parts[0].split(':')[0].strip()
+        if not param:
+            print('Empty param: %s' %line.replace('\n', '\\n'))
+            continue
+        helps[param] = ' '.join(map(str.strip, parts[1:]))
+    return helps
+
+
+
 
 class Tree(QWidget):
     def __init__(self):
@@ -233,7 +289,7 @@ def create_prop_widgets(obj):
             container_widget.layout().addWidget(factory(obj))
         else:
             continue
-            
+
     return container_widget
 
 

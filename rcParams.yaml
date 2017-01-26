@@ -1,0 +1,979 @@
+_internal:
+  _internal.classic_mode: {default: false, type: bool}
+agg:
+  agg.path.chunksize: {default: 0, help: '0 to disable; values in the range 10000
+      to 100000 can improve speed slightly and prevent an Agg rendering failure when
+      plotting very large data sets, especially if they are very gappy. It may cause
+      minor artifacts, though. A value of 20000 is probably a good starting point.',
+    type: float}
+animation:
+  animation.avconv_args:
+    default: []
+    help: Additional arguments to pass to avconv
+    list_type: string
+    type: list
+  animation.avconv_path:
+    default: avconv
+    help: Path to avconv binary. Without full path $PATH is searched
+    options: []
+    type: string
+  animation.bitrate: {default: -1, help: Controls size/quality tradeoff for movie.
+      -1 implies let utility auto-determine, type: float}
+  animation.codec:
+    default: h264
+    help: Codec to use for writing movie
+    options: []
+    type: string
+  animation.convert_args:
+    default: []
+    list_type: string
+    type: list
+  animation.convert_path:
+    default: convert
+    help: Path to ImageMagick's convert binary. On Windows use the full path since
+      convert is also the name of a system tool.
+    options: []
+    type: string
+  animation.ffmpeg_args:
+    default: []
+    help: Additional arguments to pass to ffmpeg
+    list_type: string
+    type: list
+  animation.ffmpeg_path:
+    default: ffmpeg
+    help: Path to ffmpeg binary. Without full path $PATH is searched
+    options: []
+    type: string
+  animation.frame_format:
+    default: png
+    help: Controls frame format used by temp files
+    options: []
+    type: string
+  animation.html:
+    default: none
+    help: How to display the animation as HTML in the IPython notebook. 'html5' uses
+      HTML5 video tag.
+    options: ['html5']
+    type: string
+  animation.mencoder_args:
+    default: []
+    help: Additional arguments to pass to mencoder
+    list_type: string
+    type: list
+  animation.mencoder_path:
+    default: mencoder
+    help: Path to mencoder binary. Without full path $PATH is searched
+    options: []
+    type: string
+  animation.writer:
+    default: ffmpeg
+    help: MovieWriter 'backend' to use
+    options: []
+    type: string
+axes:
+  axes.autolimit_mode:
+    default: data
+    help: How to scale axes limits to the data. Use "data" to use data limits, plus
+      some margin Use "round_number" move to the nearest "round" number
+    options: ['data', 'round_number']
+    type: string
+  axes.axisbelow:
+    default: line
+    help: draw axis gridlines and ticks below patches (True); above patches but below
+      lines ('line'); or above all (False)
+    options: [true, false, 'line']
+    type: string
+  axes.edgecolor:
+    default: k
+    help: axes edge color
+    options: []
+    type: colorstring
+  axes.facecolor:
+    default: w
+    help: axes background color
+    options: []
+    type: colorstring
+  axes.formatter.limits:
+    default: [-7, 7]
+    help: use scientific notation if log10 of the axis range is smaller than the first
+      or larger than the second
+    list_type: float
+    type: list
+  axes.formatter.offset_threshold: {default: 4, help: 'When useoffset is True, the
+      offset will be used when it can remove at least this number of significant digits
+      from tick labels.', type: float}
+  axes.formatter.use_locale: {default: false, help: 'When True, format tick labels
+      according to the user''s locale. For example, use '','' as a decimal separator
+      in the fr_FR locale.', type: bool}
+  axes.formatter.use_mathtext: {default: false, help: 'When True, use mathtext for
+      scientific notation.', type: bool}
+  axes.formatter.useoffset:
+    default: true
+    help: 'If True, the tick label formatter
+      will default to labeling ticks relative to an offset when the data range is
+      small compared to the minimum absolute value of the data.'
+    type: bool
+  axes.grid:
+    default: false
+    help: display grid or not
+    type: bool
+  axes.grid.axis:
+    default: both
+    options: []
+    type: string
+  axes.grid.which:
+    default: major
+    options: []
+    type: string
+  axes.hold: {default: null, type: null}
+  axes.labelcolor:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  axes.labelpad: {default: 4.0, help: space between label and axis, type: float}
+  axes.labelsize:
+    default: medium
+    help: fontsize of the x any y labels
+    options: []
+    type: string
+  axes.labelweight:
+    default: normal
+    help: weight of the x and y labels
+    options: []
+    type: string
+  axes.linewidth: {default: 0.8, help: edge linewidth, type: float}
+  axes.prop_cycle: {default: 'cycler(u''color'', [u''#1f77b4'', u''#ff7f0e'', u''#2ca02c'',
+      u''#d62728'', u''#9467bd'', u''#8c564b'', u''#e377c2'', u''#7f7f7f'', u''#bcbd22'',
+      u''#17becf''])', help: '', type: string}
+  axes.spines.bottom: {default: true, type: bool}
+  axes.spines.left: {default: true, type: bool}
+  axes.spines.right: {default: true, type: bool}
+  axes.spines.top: {default: true, type: bool}
+  axes.titlepad: {default: 6.0, help: pad between axes and title in points, type: float}
+  axes.titlesize:
+    default: large
+    help: fontsize of the axes title
+    options: []
+    type: string
+  axes.titleweight:
+    default: normal
+    options: []
+    type: string
+  axes.unicode_minus: {default: true, help: 'use unicode for the minus symbol rather
+      than hyphen.  See http://en.wikipedia.org/wiki/Plus_and_minus_signs Character_codes',
+    type: bool}
+  axes.xmargin: {default: 0.05, help: x margin.  See `axes.Axes.margins`, type: float}
+  axes.ymargin: {default: 0.05, help: y margin See `axes.Axes.margins`, type: float}
+axes3d:
+  axes3d.grid: {default: true, help: display grid on 3d axes, type: bool}
+backend:
+  backend:
+    default: TkAgg
+    help: ''
+    options: []
+    type: string
+  backend.qt4:
+    default: PyQt4
+    help: PyQt4 | PySide
+    options: []
+    type: string
+  backend.qt5:
+    default: PyQt5
+    options: []
+    type: string
+backend_fallback:
+  backend_fallback: {default: true, help: '', type: bool}
+boxplot:
+  boxplot.bootstrap: {default: null, help: '', type: null}
+  boxplot.boxprops.color:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.boxprops.linestyle:
+    default: '-'
+    help: ''
+    options: []
+    type: string
+  boxplot.boxprops.linewidth: {default: 1.0, help: '', type: float}
+  boxplot.capprops.color:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.capprops.linestyle:
+    default: '-'
+    help: ''
+    options: []
+    type: string
+  boxplot.capprops.linewidth: {default: 1.0, help: '', type: float}
+  boxplot.flierprops.color:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.flierprops.linestyle:
+    default: none
+    help: ''
+    options: []
+    type: string
+  boxplot.flierprops.linewidth: {default: 1.0, help: '', type: float}
+  boxplot.flierprops.marker:
+    default: o
+    help: ''
+    options: []
+    type: string
+  boxplot.flierprops.markeredgecolor:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.flierprops.markerfacecolor:
+    default: none
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.flierprops.markersize: {default: 6.0, help: '', type: float}
+  boxplot.meanline: {default: false, help: '', type: bool}
+  boxplot.meanprops.color:
+    default: C2
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.meanprops.linestyle:
+    default: --
+    help: ''
+    options: []
+    type: string
+  boxplot.meanprops.linewidth: {default: 1.0, help: '', type: float}
+  boxplot.meanprops.marker:
+    default: ^
+    help: ''
+    options: []
+    type: string
+  boxplot.meanprops.markeredgecolor:
+    default: C2
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.meanprops.markerfacecolor:
+    default: C2
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.meanprops.markersize: {default: 6.0, help: '', type: float}
+  boxplot.medianprops.color:
+    default: C1
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.medianprops.linestyle:
+    default: '-'
+    help: ''
+    options: []
+    type: string
+  boxplot.medianprops.linewidth: {default: 1.0, help: '', type: float}
+  boxplot.notch: {default: false, help: '', type: bool}
+  boxplot.patchartist: {default: false, help: '', type: bool}
+  boxplot.showbox: {default: true, help: '', type: bool}
+  boxplot.showcaps: {default: true, help: '', type: bool}
+  boxplot.showfliers: {default: true, help: '', type: bool}
+  boxplot.showmeans: {default: false, help: '', type: bool}
+  boxplot.vertical: {default: true, help: '', type: bool}
+  boxplot.whiskerprops.color:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  boxplot.whiskerprops.linestyle:
+    default: '-'
+    help: ''
+    options: []
+    type: string
+  boxplot.whiskerprops.linewidth: {default: 1.0, help: '', type: float}
+  boxplot.whiskers: {default: 1.5, help: '', type: float}
+contour:
+  contour.corner_mask: {default: true, help: True | False | legacy, type: bool}
+  contour.negative_linestyle:
+    default: dashed
+    help: dashed | solid
+    options: ['dashed', 'solid']
+    type: string
+datapath:
+  datapath:
+    default: '~/.local/lib/python2.7/site-packages/matplotlib/mpl-data'
+    help: ''
+    options: []
+    type: string
+date:
+  date.autoformatter.day:
+    default: '%Y-%m-%d'
+    options: []
+    type: string
+  date.autoformatter.hour:
+    default: '%m-%d %H'
+    options: []
+    type: string
+  date.autoformatter.microsecond:
+    default: '%M:%S.%f'
+    options: []
+    type: string
+  date.autoformatter.minute:
+    default: '%d %H:%M'
+    options: []
+    type: string
+  date.autoformatter.month:
+    default: '%Y-%m'
+    options: []
+    type: string
+  date.autoformatter.second:
+    default: '%H:%M:%S'
+    options: []
+    type: string
+  date.autoformatter.year:
+    default: '%Y'
+    options: []
+    type: string
+docstring:
+  docstring.hardcopy: {default: false, type: bool}
+errorbar:
+  errorbar.capsize: {default: 0.0, help: length of end cap on error bars in pixels,
+    type: float}
+examples:
+  examples.directory:
+    default: ''
+    help: directory to look in for custom installation
+    options: []
+    type: string
+figure:
+  figure.autolayout: {default: false, help: 'When True, automatically adjust subplot
+      parameters to make the plot fit the figure', type: bool}
+  figure.dpi: {default: 100.0, help: figure dots per inch, type: float}
+  figure.edgecolor:
+    default: w
+    help: figure edgecolor
+    options: []
+    type: colorstring
+  figure.facecolor:
+    default: w
+    help: figure facecolor; 0.75 is scalar gray
+    options: []
+    type: colorstring
+  figure.figsize:
+    default: [6.4, 4.8]
+    help: figure size in inches
+    list_type: float
+    type: list
+  figure.frameon: {default: true, type: bool}
+  figure.max_open_warning: {default: 20, help: The maximum number of figures to open
+      through the pyplot interface before emitting a warning. If less than one this
+      feature is disabled., type: float}
+  figure.subplot.bottom: {default: 0.11, help: the bottom of the subplots of the figure,
+    type: float}
+  figure.subplot.hspace: {default: 0.2, help: 'the amount of height reserved for white
+      space between subplots, expressed as a fraction of the average axis height',
+    type: float}
+  figure.subplot.left: {default: 0.125, help: the left side of the subplots of the
+      figure, type: float}
+  figure.subplot.right: {default: 0.9, help: the right side of the subplots of the
+      figure, type: float}
+  figure.subplot.top: {default: 0.88, help: the top of the subplots of the figure,
+    type: float}
+  figure.subplot.wspace: {default: 0.2, help: 'the amount of width reserved for blank
+      space between subplots, expressed as a fraction of the average axis width',
+    type: float}
+  figure.titlesize:
+    default: large
+    help: size of the figure title (Figure.suptitle())
+    options: []
+    type: string
+  figure.titleweight:
+    default: normal
+    help: weight of the figure title
+    options: []
+    type: string
+font:
+  font.cursive:
+    default: [Apple Chancery, Textile, Zapf Chancery, Sand, Script MT, Felipa, cursive]
+    help: ''
+    list_type: string
+    type: list
+  font.family:
+    default: [sans-serif]
+    list_type: string
+    type: list
+  font.fantasy:
+    default: [Comic Sans MS, Chicago, Charcoal, ImpactWestern, Humor Sans, xkcd, fantasy]
+    help: ''
+    list_type: string
+    type: list
+  font.monospace:
+    default: [DejaVu Sans Mono, Bitstream Vera Sans Mono, Computer Modern Typewriter,
+      Andale Mono, Nimbus Mono L, Courier New, Courier, Fixed, Terminal, monospace]
+    help: ''
+    list_type: string
+    type: list
+  font.sans-serif:
+    default: [DejaVu Sans, Bitstream Vera Sans, Computer Modern Sans Serif, Lucida
+        Grande, Verdana, Geneva, Lucid, Arial, Helvetica, Avant Garde, sans-serif]
+    help: ''
+    list_type: string
+    type: list
+  font.serif:
+    default: [DejaVu Serif, Bitstream Vera Serif, Computer Modern Roman, New Century
+        Schoolbook, Century Schoolbook L, Utopia, ITC Bookman, Bookman, Nimbus Roman
+        No9 L, Times New Roman, Times, Palatino, Charter, serif]
+    help: ''
+    list_type: string
+    type: list
+  font.size: {default: 10.0, help: '', type: float}
+  font.stretch:
+    default: normal
+    help: ''
+    options: []
+    type: string
+  font.style:
+    default: normal
+    help: ''
+    options: []
+    type: string
+  font.variant:
+    default: normal
+    help: ''
+    options: []
+    type: string
+  font.weight:
+    default: normal
+    help: ''
+    options: []
+    type: string
+grid:
+  grid.alpha: {default: 1.0, help: 'transparency, between 0.0 and 1.0', type: float}
+  grid.color:
+    default: '#b0b0b0'
+    help: grid color
+    options: []
+    type: colorstring
+  grid.linestyle:
+    default: '-'
+    help: solid
+    options: []
+    type: string
+  grid.linewidth: {default: 0.8, help: in points, type: float}
+hatch:
+  hatch.color:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  hatch.linewidth: {default: 1.0, help: '', type: float}
+hist:
+  hist.bins: {default: 10, help: 'The default number of histogram bins. If Numpy 1.11
+      or later is installed, may also be `auto`', type: float}
+image:
+  image.aspect:
+    default: equal
+    help: equal | auto | a number
+    options: []
+    type: string
+  image.cmap:
+    default: viridis
+    help: A colormap name, gray etc...
+    options: []
+    type: string
+  image.composite_image: {default: true, help: 'When True, all the images on a set
+      of axes are combined into a single composite image before saving a figure as
+      a vector graphics file, such as a PDF.', type: bool}
+  image.interpolation:
+    default: nearest
+    help: see help(imshow) for options
+    options: []
+    type: string
+  image.lut: {default: 256, help: the size of the colormap lookup table, type: float}
+  image.origin:
+    default: upper
+    help: lower | upper
+    options: []
+    type: string
+  image.resample: {default: true, help: '', type: bool}
+interactive:
+  interactive: {default: true, help: '', type: bool}
+keymap:
+  keymap.all_axes:
+    default: [a]
+    help: enable all axes
+    list_type: string
+    type: list
+  keymap.back:
+    default: [left, c, backspace]
+    help: forward / backward keys to enable
+    list_type: string
+    type: list
+  keymap.forward:
+    default: [right, v]
+    help: left handed quick navigation
+    list_type: string
+    type: list
+  keymap.fullscreen:
+    default: [f, ctrl+f]
+    help: toggling
+    list_type: string
+    type: list
+  keymap.grid:
+    default: [g]
+    help: switching on/off a grid in current axes
+    list_type: string
+    type: list
+  keymap.home:
+    default: [h, r, home]
+    help: home or reset mnemonic
+    list_type: string
+    type: list
+  keymap.pan:
+    default: [p]
+    help: pan mnemonic
+    list_type: string
+    type: list
+  keymap.quit:
+    default: [ctrl+w, cmd+w]
+    help: close the current figure
+    list_type: string
+    type: list
+  keymap.save:
+    default: [s, ctrl+s]
+    help: saving current figure
+    list_type: string
+    type: list
+  keymap.xscale:
+    default: [k, L]
+    help: toggle scaling of x-axes ('log'/'linear')
+    list_type: string
+    type: list
+  keymap.yscale:
+    default: [l]
+    help: toggle scaling of y-axes ('log'/'linear')
+    list_type: string
+    type: list
+  keymap.zoom:
+    default: [o]
+    help: zoom mnemonic
+    list_type: string
+    type: list
+legend:
+  legend.borderaxespad: {default: 0.5, help: the border between the axes and legend
+      edge, type: float}
+  legend.borderpad: {default: 0.4, help: border whitespace, type: float}
+  legend.columnspacing: {default: 2.0, help: column separation, type: float}
+  legend.edgecolor:
+    default: '0.8'
+    help: background patch boundary color
+    options: []
+    type: colorstring
+  legend.facecolor:
+    default: inherit
+    help: inherit from axes.facecolor; or color spec
+    options: []
+    type: colorstring
+  legend.fancybox: {default: true, help: 'if True, use a rounded box for the legend
+      background, else a rectangle', type: bool}
+  legend.fontsize:
+    default: medium
+    help: ''
+    options: []
+    type: string
+  legend.framealpha: {default: 0.8, help: legend patch transparency, type: float}
+  legend.frameon: {default: true, help: 'if True, draw the legend on a background
+      patch', type: bool}
+  legend.handleheight: {default: 0.7, help: the height of the legend handle, type: float}
+  legend.handlelength: {default: 2.0, help: the length of the legend lines, type: float}
+  legend.handletextpad: {default: 0.8, help: the space between the legend line and
+      legend text, type: float}
+  legend.labelspacing: {default: 0.5, help: the vertical space between the legend
+      entries, type: float}
+  legend.loc:
+    default: best
+    help: ''
+    options: []
+    type: string
+  legend.markerscale: {default: 1.0, help: the relative size of legend markers vs.
+      original, type: float}
+  legend.numpoints: {default: 1, help: the number of marker points in the legend line,
+    type: float}
+  legend.scatterpoints: {default: 1, help: number of scatter points, type: float}
+  legend.shadow: {default: false, help: 'if True, give background a shadow effect',
+    type: bool}
+lines:
+  lines.antialiased: {default: true, help: render lines in antialiased (no jaggies),
+    type: bool}
+  lines.color:
+    default: C0
+    help: has no affect on plot(); see axes.prop_cycle
+    options: []
+    type: colorstring
+  lines.dash_capstyle:
+    default: butt
+    help: butt|round|projecting
+    options: []
+    type: string
+  lines.dash_joinstyle:
+    default: round
+    help: miter|round|bevel
+    options: []
+    type: string
+  lines.dashdot_pattern:
+    default: [4.8, 1.2, 0.8, 1.2]
+    help: ''
+    list_type: float
+    type: list
+  lines.dashed_pattern:
+    default: [2.8, 1.2]
+    help: ''
+    list_type: float
+    type: list
+  lines.dotted_pattern:
+    default: [1.1, 1.1]
+    help: ''
+    list_type: float
+    type: list
+  lines.linestyle:
+    default: '-'
+    help: solid line
+    options: []
+    type: string
+  lines.linewidth: {default: 1.5, help: line width in points, type: float}
+  lines.marker:
+    default: None
+    help: the default marker
+    options: []
+    type: string
+  lines.markeredgewidth: {default: 1.0, help: the line width around the marker symbol,
+    type: float}
+  lines.markersize: {default: 6.0, help: 'markersize, in points', type: float}
+  lines.scale_dashes: {default: true, help: '', type: bool}
+  lines.solid_capstyle:
+    default: projecting
+    help: butt|round|projecting
+    options: []
+    type: string
+  lines.solid_joinstyle:
+    default: round
+    help: miter|round|bevel
+    options: []
+    type: string
+markers:
+  markers.fillstyle:
+    default: full
+    help: full|left|right|bottom|top|none
+    options: []
+    type: string
+mathtext:
+  mathtext.bf:
+    default: sans:bold
+    help: ''
+    options: []
+    type: string
+  mathtext.cal:
+    default: cursive
+    help: ''
+    options: []
+    type: string
+  mathtext.default:
+    default: it
+    help: The default font to use for math. Can be any of the LaTeX font names, including
+      the special name "regular" for the same font used in regular text.
+    options: []
+    type: string
+  mathtext.fallback_to_cm: {default: true, help: 'When True, use symbols from the
+      Computer Modern fonts when a symbol can not be found in one of the custom math
+      fonts.', type: bool}
+  mathtext.fontset:
+    default: dejavusans
+    help: Should be 'dejavusans' (default), 'dejavuserif', 'cm' (Computer Modern),
+      'stix', 'stixsans' or 'custom'
+    options: []
+    type: string
+  mathtext.it:
+    default: sans:italic
+    help: ''
+    options: []
+    type: string
+  mathtext.rm:
+    default: sans
+    help: ''
+    options: []
+    type: string
+  mathtext.sf:
+    default: sans
+    help: ''
+    options: []
+    type: string
+  mathtext.tt:
+    default: monospace
+    help: ''
+    options: []
+    type: string
+nbagg:
+  nbagg.transparent: {default: true, type: bool}
+patch:
+  patch.antialiased: {default: true, help: render patches in antialiased (no jaggies),
+    type: bool}
+  patch.edgecolor:
+    default: k
+    help: if forced, or patch is not filled
+    options: []
+    type: colorstring
+  patch.facecolor:
+    default: C0
+    help: ''
+    options: []
+    type: colorstring
+  patch.force_edgecolor: {default: false, help: True to always use edgecolor, type: bool}
+  patch.linewidth: {default: 1.0, help: edge width in points., type: float}
+path:
+  path.effects:
+    default: []
+    list_type: string
+    type: list
+  path.simplify: {default: true, help: 'When True, simplify paths by removing "invisible"
+      points to reduce file size and increase rendering speed', type: bool}
+  path.simplify_threshold: {default: 0.1111111111111111, help: The threshold of similarity
+      below which vertices will be removed in the simplification process, type: float}
+  path.sketch: {default: null, help: 'May be none, or a 3-tuple of the form (scale,
+      length, randomness). *scale* is the amplitude of the wiggle perpendicular to
+      the line (in pixels).  *length* is the length of the wiggle along the line (in
+      pixels).  *randomness* is the factor by which the length is randomly scaled.',
+    type: null}
+  path.snap: {default: true, help: 'When True, rectilinear axis-aligned paths will
+      be snapped to the nearest pixel when certain criteria are met.  When False,
+      paths will never be snapped.', type: bool}
+pdf:
+  pdf.compression: {default: 6, help: integer from 0 to 9 0 disables compression (good
+      for debugging), type: float}
+  pdf.fonttype: {default: 3, help: Output Type 3 (Type3) or Type 42 (TrueType), type: float}
+  pdf.inheritcolor: {default: false, type: bool}
+  pdf.use14corefonts: {default: false, type: bool}
+pgf:
+  pgf.debug: {default: false, type: bool}
+  pgf.preamble:
+    default: []
+    list_type: string
+    type: list
+  pgf.rcfonts: {default: true, type: bool}
+  pgf.texsystem:
+    default: xelatex
+    options: []
+    type: string
+plugins:
+  plugins.directory:
+    default: .matplotlib_plugins
+    options: []
+    type: string
+polaraxes:
+  polaraxes.grid: {default: true, help: display grid on polar axes, type: bool}
+ps:
+  ps.distiller.res: {default: 6000, help: dpi, type: float}
+  ps.fonttype: {default: 3, help: Output Type 3 (Type3) or Type 42 (TrueType), type: float}
+  ps.papersize:
+    default: letter
+    help: auto, letter, legal, ledger, A0-A10, B0-B10
+    options: []
+    type: string
+  ps.useafm: {default: false, help: 'use of afm fonts, results in small files', type: bool}
+  ps.usedistiller: {default: false, help: 'can be: None, ghostscript or xpdf Experimental:
+      may produce smaller files. xpdf intended for production of publication quality
+      files, but requires ghostscript, xpdf and ps2eps', type: bool}
+savefig:
+  savefig.bbox: {default: null, help: '''tight'' or ''standard''. ''tight'' is incompatible
+      with pipe-based animation backends but will workd with temporary file based
+      ones: e.g. setting animation.writer to ffmpeg will not work, use ffmpeg_file
+      instead', type: null}
+  savefig.directory:
+    default: '~'
+    help: default directory in savefig dialog box, leave empty to always use current
+      working directory
+    options: []
+    type: string
+  savefig.dpi:
+    default: figure
+    help: figure dots per inch or 'figure'
+    options: []
+    type: string
+  savefig.edgecolor:
+    default: w
+    help: figure edgecolor when saving
+    options: []
+    type: colorstring
+  savefig.facecolor:
+    default: w
+    help: figure facecolor when saving
+    options: []
+    type: colorstring
+  savefig.format:
+    default: png
+    help: png, ps, pdf, svg
+    options: []
+    type: string
+  savefig.frameon: {default: true, type: bool}
+  savefig.jpeg_quality: {default: 95, help: 'when a jpeg is saved, the default quality
+      parameter.', type: float}
+  savefig.orientation:
+    default: portrait
+    options: []
+    type: string
+  savefig.pad_inches: {default: 0.1, help: Padding to be used when bbox is set to
+      'tight', type: float}
+  savefig.transparent: {default: false, help: setting that controls whether figures
+      are saved with a transparent background by default, type: bool}
+scatter:
+  scatter.marker:
+    default: o
+    help: The default marker type for scatter plots.
+    options: []
+    type: string
+svg:
+  svg.fonttype:
+    default: path
+    help: 'How to handle SVG fonts:'
+    options: []
+    type: string
+  svg.hashsalt: {default: null, help: 'if not None, use this string as hash salt instead
+      of uuid4', type: null}
+  svg.image_inline: {default: true, help: write raster image data directly into the
+      svg file, type: bool}
+text:
+  text.antialiased: {default: true, help: 'If True (default), the text will be antialiased.
+      This only affects the Agg backend.', type: bool}
+  text.color:
+    default: k
+    help: ''
+    options: []
+    type: colorstring
+  text.dvipnghack: {default: null, help: some versions of dvipng don't handle alpha
+      channel properly.  Use True to correct and flush ~/.matplotlib/tex.cache before
+      testing and False to force correction off.  None will try and guess based on
+      your dvipng version, type: null}
+  text.hinting:
+    default: auto
+    help: 'May be one of the following: ''none'': Perform no hinting ''auto'': Use
+      FreeType''s autohinter ''native'': Use the hinting information in the font file,
+      if available, and if your FreeType library supports it ''either'': Use the native
+      hinting information, or the autohinter if none is available. For backward compatibility,
+      this value may also be True === ''auto'' or False === ''none''.'
+    options: []
+    type: string
+  text.hinting_factor: {default: 8, help: Specifies the amount of softness for hinting
+      in the horizontal direction.  A value of 1 will hint to full pixels.  A value
+      of 2 will hint to half pixels etc., type: float}
+  text.latex.preamble:
+    default: []
+    help: 'IMPROPER USE OF THIS FEATURE WILL LEAD TO LATEX FAILURES AND IS THEREFORE
+      UNSUPPORTED. PLEASE DO NOT ASK FOR HELP IF THIS FEATURE DOES NOT DO WHAT YOU
+      EXPECT IT TO. preamble is a comma separated list of LaTeX statements that are
+      included in the LaTeX document preamble. An example: text.latex.preamble : \usepackage{bm},\usepackage{euler}
+      The following packages are always loaded with usetex, so beware of package collisions:
+      color, geometry, graphicx, type1cm, textcomp. Adobe Postscript (PSSNFS) font
+      packages may also be loaded, depending on your font settings'
+    list_type: string
+    type: list
+  text.latex.preview: {default: false, type: bool}
+  text.latex.unicode: {default: false, help: use "ucs" and "inputenc" LaTeX packages
+      for handling unicode strings., type: bool}
+  text.usetex: {default: false, help: 'use latex for all text handling. The following
+      fonts are supported through the usual rc parameter settings: new century schoolbook,
+      bookman, times, palatino, zapf chancery, charter, serif, sans-serif, helvetica,
+      avant garde, courier, monospace, computer modern roman, computer modern sans
+      serif, computer modern typewriter If another font is desired which can loaded
+      using the LaTeX \usepackage command, please inquire at the matplotlib mailing
+      list', type: bool}
+timezone:
+  timezone:
+    default: UTC
+    help: a pytz timezone string, e.g., US/Central or Europe/Paris
+    options: []
+    type: string
+tk:
+  tk.window_focus: {default: false, help: Maintain shell focus for TkAgg, type: bool}
+toolbar:
+  toolbar:
+    default: toolbar2
+    help: None | toolbar2  ("classic" is deprecated)
+    options: []
+    type: string
+verbose:
+  verbose.fileo:
+    default: sys.stdout
+    help: a log filename, sys.stdout or sys.stderr
+    options: []
+    type: string
+  verbose.level:
+    default: silent
+    help: one of silent, helpful, debug, debug-annoying
+    options: []
+    type: string
+webagg:
+  webagg.open_in_browser: {default: true, type: bool}
+  webagg.port: {default: 8988, type: float}
+  webagg.port_retries: {default: 50, type: float}
+xtick:
+  xtick.bottom: {default: true, help: draw ticks on the bottom side, type: bool}
+  xtick.color:
+    default: k
+    help: color of the tick labels
+    options: []
+    type: colorstring
+  xtick.direction:
+    default: out
+    help: 'direction: in, out, or inout'
+    options: []
+    type: string
+  xtick.labelsize:
+    default: medium
+    help: fontsize of the tick labels
+    options: []
+    type: string
+  xtick.major.bottom: {default: true, help: draw x axis bottom major ticks, type: bool}
+  xtick.major.pad: {default: 3.5, help: distance to major tick label in points, type: float}
+  xtick.major.size: {default: 3.5, help: major tick size in points, type: float}
+  xtick.major.top: {default: true, help: draw x axis top major ticks, type: bool}
+  xtick.major.width: {default: 0.8, help: major tick width in points, type: float}
+  xtick.minor.bottom: {default: true, help: draw x axis bottom minor ticks, type: bool}
+  xtick.minor.pad: {default: 3.4, help: distance to the minor tick label in points,
+    type: float}
+  xtick.minor.size: {default: 2.0, help: minor tick size in points, type: float}
+  xtick.minor.top: {default: true, help: draw x axis top minor ticks, type: bool}
+  xtick.minor.visible: {default: false, help: visibility of minor ticks on x-axis,
+    type: bool}
+  xtick.minor.width: {default: 0.6, help: minor tick width in points, type: float}
+  xtick.top: {default: false, help: draw ticks on the top side, type: bool}
+ytick:
+  ytick.color:
+    default: k
+    help: color of the tick labels
+    options: []
+    type: colorstring
+  ytick.direction:
+    default: out
+    help: 'direction: in, out, or inout'
+    options: []
+    type: string
+  ytick.labelsize:
+    default: medium
+    help: fontsize of the tick labels
+    options: []
+    type: string
+  ytick.left: {default: true, help: draw ticks on the left side, type: bool}
+  ytick.major.left: {default: true, type: bool}
+  ytick.major.pad: {default: 3.5, help: distance to major tick label in points, type: float}
+  ytick.major.right: {default: true, type: bool}
+  ytick.major.size: {default: 3.5, help: major tick size in points, type: float}
+  ytick.major.width: {default: 0.8, help: major tick width in points, type: float}
+  ytick.minor.left: {default: true, type: bool}
+  ytick.minor.pad: {default: 3.4, help: distance to the minor tick label in points,
+    type: float}
+  ytick.minor.right: {default: true, type: bool}
+  ytick.minor.size: {default: 2.0, help: minor tick size in points, type: float}
+  ytick.minor.visible: {default: false, help: visibility of minor ticks on y-axis,
+    type: bool}
+  ytick.minor.width: {default: 0.6, help: minor tick width in points, type: float}
+  ytick.right: {default: false, help: draw ticks on the right side, type: bool}
