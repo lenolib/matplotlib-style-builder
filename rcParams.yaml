@@ -53,7 +53,7 @@ animation:
     default: none
     help: How to display the animation as HTML in the IPython notebook. 'html5' uses
       HTML5 video tag.
-    options: ['html5']
+    options: ['html5', 'none']
     type: string
   animation.mencoder_args:
     default: []

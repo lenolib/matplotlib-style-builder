@@ -43,6 +43,8 @@ from PyQt4.QtGui import (
     QLineEdit,
     QCompleter,
     QComboBox,
+    QFormLayout,
+    QScrollArea,
 )
 
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
@@ -197,7 +199,275 @@ def scrape_help_for_param(rcfile):
         helps[param] = ' '.join(map(str.strip, parts[1:]))
     return helps
 
+import yaml
 
+class ParamTree(QWidget):
+    def __init__(self):
+        super(ParamTree, self).__init__()
+        self.setLayout(QVBoxLayout())
+        self.tw = QTreeWidget(self)
+        self.last_selected = None
+        self.layout().addWidget(self.tw, stretch=2)
+        self.show()
+
+    def build_tree(self):
+        with open('rcParams.yaml') as fh:
+            params = yaml.safe_load(fh)
+
+        for category, pdict in params.items():
+            top_item = QTreeWidgetItem()
+            self.tw.addTopLevelItem(top_item)
+            prop_widget = self.create_prop_widgets(pdict)
+            scroll_area = QScrollArea()
+            scroll_area.setWidget(prop_widget)
+            scroll_area.setWidgetResizable(True)
+            top_item.treeWidget().setItemWidget(top_item, 0, QLabel(category))
+#             prop_widget.hide()
+            scroll_area.hide()
+            self.layout().addWidget(scroll_area, stretch=2)
+            top_item.prop_widget = prop_widget
+            top_item.scroll_area = scroll_area
+
+        self.tw.itemSelectionChanged.connect(self.tree_item_selected)
+
+    def tree_item_selected(self):
+        if hasattr(self.last_selected, 'prop_widget'):
+#             self.last_selected.prop_widget.hide()
+            self.last_selected.scroll_area.hide()
+        selected = self.tw.selectedItems()
+        logger.debug('Selected %s', selected)
+        if len(selected) > 1:
+            logger.debug('multiple items selected - no action')
+            return
+        else:
+            selected = selected[0]
+        if hasattr(selected, 'prop_widget'):
+            self.last_selected = selected
+#             selected.prop_widget.show()
+            selected.scroll_area.show()
+        else:
+            raise Exception('no attr')
+#             maybe_widget = create_prop_widgets(selected.target_obj)
+#             if maybe_widget is not None:
+#                 selected.prop_widget = maybe_widget
+#                 self.layout().addWidget(selected.prop_widget)
+#             else:
+#                 return
+
+    def construct_widget(self, name, prop):
+        if prop['type'] == 'string':
+            if len(prop.get('options', [])) > 0:
+                widget = ChoiceParam(name, prop)
+            else:
+                widget = TextParam(name, prop)
+        elif prop['type'] is None:
+            widget  = TextParam(name, prop)
+        elif prop['type'] == 'float':
+            widget = SliderParam(name, prop)
+        elif prop['type'] == 'list':
+            widget  = TextParam(
+                name,
+                prop,
+                default=', '.join(map(str, prop['default']))
+            )
+        elif prop['type'] == 'bool':
+            widget = ChoiceParam(name, prop)
+        elif prop['type'] == 'colorstring':
+            widget = ColorParam(name, prop)
+
+        if prop.get('help'):
+            help_label = QLabel('<b>Help:</b> ' + prop['help'])
+            help_label.setMaximumWidth(400)
+            widget.layout().addWidget(help_label)
+
+        if hasattr(widget.layout, 'addStretch'):
+            widget.layout().addStretch()
+
+        return widget
+
+    def create_prop_widgets(self, props):
+        container_widget = QFrame()
+        container_widget.setLayout( QFormLayout() )
+        container_widget.layout().setFormAlignment(Qt.AlignLeft)
+        for name, prop in props.iteritems():
+            try:
+                widget = self.construct_widget(name, prop)
+            except Exception:
+                logger.exception('%s %s', name, prop)
+                raise
+            container_widget.layout().addRow(name, widget)
+
+        return container_widget
+
+
+
+def get_reasonable_range_limits(value):
+    if value < 0:
+        limits = (value * 4, value / 10)
+    elif 0 <= value < 1:
+        limits = (0, 2)
+    elif 1 <= value < 10:
+        limits = (0, 20)
+    elif value >= 10:
+        limits = (value / 10, value * 4)
+
+    return limits
+
+
+class ParamWidget(QFrame):
+    sig_param_updated = pyqtSignal(object)
+
+    def __init__(self, name, props):
+        super(ParamWidget, self).__init__()
+        self.props = props
+
+    def set_value(self, value):
+        pass
+
+
+    def get_value(self):
+        pass
+
+
+class ChoiceParam(ParamWidget):
+    def __init__(self, name, props): # TODO could calculate default index automatically if non-integer supplied
+        super(ChoiceParam, self).__init__(name, props)
+        self.setLayout( QHBoxLayout() )
+        self.combobox = QComboBox()
+        self.layout().addWidget(self.combobox)
+        options = [False, True] if props['type'] == 'bool' else props['options']
+        self.choices = OrderedDict(
+            (str(choice), choice) for choice in options
+        )
+        assert str(props['default']) in self.choices
+        self.combobox.addItems(self.choices.keys())
+        self.combobox.setCurrentIndex(
+            self.choices.keys().index(str(props['default']))
+        )
+        self.combobox.currentIndexChanged.connect(self.update)
+
+    def set_value(self, value):
+        self.combobox.setText(value)
+
+    def get_value(self):
+        return self.choices[self.combobox.text()]
+
+    def update(self, _placeholder):
+        new_choice = str(self.combobox.currentText())
+        if new_choice not in self.choices:
+            logging.error('Could not find among choices: %s (%s)',
+                          new_choice,
+                          self.choices)
+            return
+        self.sig_param_updated.emit(self.get_value())
+
+
+class TextParam(ParamWidget):
+    def __init__(self, name, props, default=None):
+        super(TextParam, self).__init__(name, props)
+        self.setLayout( QHBoxLayout() )
+        self.lineedit = QLineEdit()
+        self.layout().addWidget(self.lineedit)
+        self.set_value(
+            default or str(props['default'])  # cast because value could be none
+        )
+        self.lineedit.textChanged.connect(self.update)
+
+    def set_value(self, value):
+        self.lineedit.setText(value)
+
+    def get_value(self):
+        return self.lineedit.text()
+
+    def update(self, text):
+        self.sig_param_updated.emit(self.get_value())
+
+
+from matplotlib.backends.qt_editor.formlayout import ColorLayout, to_qcolor
+
+class ColorParam(ParamWidget):
+    def __init__(self, name, props):
+        super(ColorParam, self).__init__(name, props)
+        colorstr = props['default']
+        self.setLayout(
+            ColorLayout(to_qcolor(colorstr))
+        )
+
+    def set_value(self, value):
+        self.layout().update_text(to_qcolor(value))
+        self.layout().update_color()
+
+    def get_value(self):
+        return self.layout().text()
+
+    def update_text(self, color):
+        super(ColorParam, self).__init__(color)
+        self.sig_param_updated.emit(self.get_value())
+
+
+class SliderParam(ParamWidget):
+    def __init__(self, name, props):
+        super(SliderParam, self).__init__(name, props)
+        self.setLayout( QHBoxLayout() )
+        self.slider = QSlider()
+        self.slider.setMouseTracking(False)
+        self.slider.setProperty("value", 0)
+        self.slider.setOrientation(QtCore.Qt.Horizontal)
+        self.slider.setInvertedAppearance(False)
+        self.slider.setInvertedControls(False)
+        self.slider.setTickPosition(QSlider.TicksAbove)
+        self.slider.setTickInterval(5)
+
+        self.value_edit = QLineEdit('0')
+        self.value_edit.setMinimumSize(QtCore.QSize(20, 0))
+        self.value_edit.setMaximumWidth(100)
+        self.value_edit.setAlignment(
+            QtCore.Qt.AlignRight |
+            QtCore.Qt.AlignTrailing |
+            QtCore.Qt.AlignVCenter)
+
+        self.layout().addWidget(self.slider)
+        self.layout().addWidget(self.value_edit)
+
+        self.slider.valueChanged.connect(self.on_slider_changed)
+        self.value_edit.editingFinished.connect(self.on_box_changed)
+        start_value = self.props['default']
+        limits = get_reasonable_range_limits(start_value)
+        self.set_minimum(limits[0])
+        self.set_maximum(limits[1])
+        self.set_value(start_value)
+
+    def set_minimum(self, value):
+        self.slider.setMinimum(value * 100)
+
+    def set_maximum(self, value):
+        self.slider.setMaximum(value * 100)
+
+    def get_value(self):
+        return self.slider.value() / 100
+
+    def set_value(self, value):
+        factored = value * 100
+        if factored > self.slider.maximum():
+            slider.setMaximum(factored)
+#         logger.debug('updating slider %s', value)
+        self.slider.setValue(factored)
+
+    def on_slider_changed(self, val):
+        text = "%.2f" % self.get_value()
+        if str(self.value_edit.text()) != text:
+#             logger.debug('not equal text %s %s', self.value_edit.text(), text)
+            self.value_edit.setText(text)
+        self.sig_param_updated.emit(self.get_value())
+
+    def on_box_changed(self):
+        text = self.value_edit.text()
+        try:
+            value = float(text)
+        except ValueError as ve:
+            logger.error('Could not convert argument to float %s', text)
+            return
+        self.set_value(value)
 
 
 class Tree(QWidget):
@@ -249,12 +519,31 @@ class Tree(QWidget):
             self.last_selected = selected
             selected.prop_widget.show()
         else:
-            maybe_widget = create_prop_widgets(selected.target_obj)
+            maybe_widget = self.create_prop_widgets(selected.target_obj)
             if maybe_widget is not None:
                 selected.prop_widget = maybe_widget
                 self.layout().addWidget(selected.prop_widget)
             else:
                 return
+
+
+    def create_prop_widgets(obj):
+        # Add property-widget children if supported class
+        if type(obj) not in supported_classes:
+            return None
+        scroll_area = QScrollArea()
+        container_widget = QWidget()
+        scroll_area.setWidget(container_widget)
+        container_widget.setLayout( QVBoxLayout() )
+        for propname, factory in property_2_widget_factory.iteritems():
+            if hasattr(obj, 'get_' + propname):
+                container_widget.layout().addWidget(factory(obj))
+            else:
+                continue
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFixedHeight(400)
+        return scroll_area
+    #     return container_widget
 
 
 def expand_tree_item(item, col):
@@ -276,21 +565,6 @@ def expand_tree_item(item, col):
             text_already_set=True,
             expand_n_levels=1,
         )
-
-
-def create_prop_widgets(obj):
-    # Add property-widget children if supported class
-    if type(obj) not in supported_classes:
-        return None
-    container_widget = QFrame()
-    container_widget.setLayout( QVBoxLayout() )
-    for propname, factory in property_2_widget_factory.iteritems():
-        if hasattr(obj, 'get_' + propname):
-            container_widget.layout().addWidget(factory(obj))
-        else:
-            continue
-
-    return container_widget
 
 
 def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
@@ -365,13 +639,9 @@ def redraw_canvas_through_object(obj):
 
 def text_for_object(obj, text, prop=None, getter=None, setter=None):
     getter, setter = deduce_getter_setter(obj, text, prop, getter, setter)
+    layout, lineedit = _textedit(text, getter())
     obj_widget = QFrame()
-    hbox = QHBoxLayout()
-    obj_widget.setLayout(hbox)
-    hbox.addWidget(QLabel(text))
-    lineedit = QLineEdit()
-    hbox.addWidget(lineedit)
-    lineedit.setText(getter())
+    obj_widget.setLayout(layout)
     def update(text):
         setter(text)
         redraw_canvas_through_object(obj)
@@ -382,9 +652,7 @@ def text_for_object(obj, text, prop=None, getter=None, setter=None):
 
 def slider_for_object(obj, text, min, max, prop=None, getter=None, setter=None):
     getter, setter = deduce_getter_setter(obj, text, prop, getter, setter)
-    label, slider, value_edit, hbox_layout = new_slider(text)
-    obj_widget = QFrame()
-    obj_widget.setLayout(hbox_layout)
+    obj_widget, slider = new_slider(text)
 
     def update(value):
         setter(value / 100)
@@ -395,87 +663,6 @@ def slider_for_object(obj, text, min, max, prop=None, getter=None, setter=None):
     slider.valueChanged.connect(update)
 
     return obj_widget
-
-
-def choice_combobox(obj, text, choices, prop=None, getter=None, setter=None):
-    getter, setter = deduce_getter_setter(obj, text, prop, getter, setter)
-    obj_widget = QFrame()
-    hbox = QHBoxLayout()
-    obj_widget.setLayout(hbox)
-    hbox.addWidget(QLabel(text))
-    combobox = QComboBox()
-    hbox.addWidget(combobox)
-    if not isinstance(choices, dict):
-        choices = OrderedDict(zip(choices, choices))
-    choice_list = choices.keys()
-    combobox.addItems(choice_list)
-    current_choice = getter()
-    combobox.setCurrentIndex(choices.values().index(current_choice))
-    def update(_placeholder):
-        new_choice = str(combobox.currentText())
-        if new_choice not in choices:
-            logging.error('Could not find among choices: %s (%s)',
-                          new_choice,
-                          choices)
-            return
-        setter(choices[new_choice])
-        redraw_canvas_through_object(obj)
-
-    combobox.currentIndexChanged.connect(update)
-    return obj_widget
-
-
-def new_slider(name):
-    hbox_layout = QHBoxLayout()
-    label = QLabel(name)
-    label.setMinimumSize(QtCore.QSize(20, 0))
-    label.setAlignment(
-        QtCore.Qt.AlignRight |
-        QtCore.Qt.AlignTrailing |
-        QtCore.Qt.AlignVCenter)
-
-    slider = QSlider()
-    slider.setMouseTracking(False)
-    slider.setProperty("value", 0)
-    slider.setOrientation(QtCore.Qt.Horizontal)
-    slider.setInvertedAppearance(False)
-    slider.setInvertedControls(False)
-    slider.setTickPosition(QSlider.TicksAbove)
-    slider.setTickInterval(5)
-
-    value_edit = QLineEdit('0')
-    value_edit.setMinimumSize(QtCore.QSize(20, 0))
-    value_edit.setAlignment(
-        QtCore.Qt.AlignRight |
-        QtCore.Qt.AlignTrailing |
-        QtCore.Qt.AlignVCenter)
-
-    hbox_layout.addWidget(label)
-    hbox_layout.addWidget(slider)
-    hbox_layout.addWidget(value_edit)
-
-    def on_slider_changed(val):
-        text = "%.2f" % (val / 100)
-        if str(value_edit.text()) != text:
-            logger.debug('not equal text %s %s', value_edit.text(), text)
-            value_edit.setText(text)
-
-    def on_box_changed():
-        text = value_edit.text()
-        try:
-            value = float(text) * 100
-        except ValueError as ve:
-            logger.error('Could not convert argument to flaot %s', text)
-            return
-        logger.debug('updating slider %s', text)
-        if value > slider.maximum():
-            slider.setMaximum(value)
-        slider.setValue(value)
-
-    slider.valueChanged.connect(on_slider_changed)
-    value_edit.editingFinished.connect(on_box_changed)
-
-    return label, slider, value_edit, hbox_layout
 
 
 
