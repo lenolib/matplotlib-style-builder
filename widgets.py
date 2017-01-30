@@ -126,6 +126,7 @@ if len(property_2_widget_factory) != len(property_order):
 
 def test():
     import pandas as pd
+    import numpy as np
     from datetime import datetime
     series = pd.Series(
         index=map(
@@ -134,18 +135,19 @@ def test():
         ),
         data=[0, 100,  10, 100,  10,  10]
     ).resample('1s').mean().ffill()
-    ax = series.plot()
-    tree = Tree()
-    tree.new_tree({
-        'hej':ax.figure,
-        'toplevel_dt': datetime.utcnow(),
-        'dic': {'hej': datetime.utcnow(),
-                'yo': 'tjataj',
-                'sub': {'hej': datetime.utcnow(), 'yo': 'tjataj'}
-            },
-    })
-    return tree, ax
 
+    def my_plot(fig):
+        ax = fig.add_subplot(111)
+        ret = ax.plot(np.arange(9)**2, label='myline')
+        ax=fig.axes[0]
+        ax.grid(True)
+        ax.legend()
+        ax.set_title('The graph title')
+        ax.set_xlabel('the xlabel')
+
+    pt = ParamTree(my_plot)
+    pt.build_tree()
+    return pt
 
 from numbers import Number
 def get_rcparams_types(rc, rcfile):
@@ -201,20 +203,33 @@ def scrape_help_for_param(rcfile):
 
 import yaml
 
+import matplotlib as mpl
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.figure import Figure
+from matplotlib.backend_bases import key_press_handler
+
 class ParamTree(QWidget):
-    def __init__(self):
+    def __init__(self, plot_callback=None):
         super(ParamTree, self).__init__()
+        self.setMinimumSize(600, 400)
         self.setLayout(QVBoxLayout())
         self.tw = QTreeWidget(self)
         self.last_selected = None
         self.layout().addWidget(self.tw, stretch=2)
         self.show()
+        self.changed = {}
+        self.plot_callback = plot_callback
+        self.fig_widget = QWidget()
+        self.fig_widget.setMinimumSize(600, 400)
+        self.fig_widget.setLayout(QVBoxLayout())
+        self.fig_widget.show()
 
     def build_tree(self):
         with open('rcParams.yaml') as fh:
-            params = yaml.safe_load(fh)
+            self.params = yaml.safe_load(fh)
 
-        for category, pdict in params.items():
+        for category, pdict in self.params.items():
             top_item = QTreeWidgetItem()
             self.tw.addTopLevelItem(top_item)
             prop_widget = self.create_prop_widgets(pdict)
@@ -254,6 +269,20 @@ class ParamTree(QWidget):
 #             else:
 #                 return
 
+    def plot_with_changed(self):
+        with matplotlib.rc_context(self.changed):
+            logger.info('Updating plot')
+            self.fig = Figure()
+            if hasattr(self, 'fig_canvas'):
+                self.fig_widget.layout().removeWidget(self.fig_canvas)
+            self.fig_canvas = FigureCanvas(self.fig)
+            self.fig_widget.layout().addWidget(self.fig_canvas)
+            self.plot_callback(self.fig)
+
+    def value_updated(self, name, value):
+        self.changed[name] = value
+        self.plot_with_changed()
+
     def construct_widget(self, name, prop):
         if prop['type'] == 'string':
             if len(prop.get('options', [])) > 0:
@@ -265,11 +294,9 @@ class ParamTree(QWidget):
         elif prop['type'] == 'float':
             widget = SliderParam(name, prop)
         elif prop['type'] == 'list':
-            widget  = TextParam(
-                name,
-                prop,
-                default=', '.join(map(str, prop['default']))
-            )
+            widget = TextParam(name,
+                                prop,
+                                default=', '.join(map(str, prop['default'])))
         elif prop['type'] == 'bool':
             widget = ChoiceParam(name, prop)
         elif prop['type'] == 'colorstring':
@@ -279,7 +306,7 @@ class ParamTree(QWidget):
             help_label = QLabel('<b>Help:</b> ' + prop['help'])
             help_label.setMaximumWidth(400)
             widget.layout().addWidget(help_label)
-
+        widget.sig_param_updated.connect(self.value_updated)
         if hasattr(widget.layout, 'addStretch'):
             widget.layout().addStretch()
 
@@ -300,7 +327,6 @@ class ParamTree(QWidget):
         return container_widget
 
 
-
 def get_reasonable_range_limits(value):
     if value < 0:
         limits = (value * 4, value / 10)
@@ -315,18 +341,21 @@ def get_reasonable_range_limits(value):
 
 
 class ParamWidget(QFrame):
-    sig_param_updated = pyqtSignal(object)
+    sig_param_updated = pyqtSignal(object, object)
 
     def __init__(self, name, props):
         super(ParamWidget, self).__init__()
+        self.name = name
         self.props = props
 
-    def set_value(self, value):
-        pass
+    def emit_update(self):
+        self.sig_param_updated.emit(self.name, self.get_value())
 
+    def set_value(self, value):
+        raise NotImplementedError()
 
     def get_value(self):
-        pass
+        raise NotImplementedError()
 
 
 class ChoiceParam(ParamWidget):
@@ -350,7 +379,7 @@ class ChoiceParam(ParamWidget):
         self.combobox.setText(value)
 
     def get_value(self):
-        return self.choices[self.combobox.text()]
+        return self.choices[str(self.combobox.currentText())]
 
     def update(self, _placeholder):
         new_choice = str(self.combobox.currentText())
@@ -359,7 +388,7 @@ class ChoiceParam(ParamWidget):
                           new_choice,
                           self.choices)
             return
-        self.sig_param_updated.emit(self.get_value())
+        self.emit_update()
 
 
 class TextParam(ParamWidget):
@@ -371,38 +400,42 @@ class TextParam(ParamWidget):
         self.set_value(
             default or str(props['default'])  # cast because value could be none
         )
-        self.lineedit.textChanged.connect(self.update)
+        self.lineedit.editingFinished.connect(self.update)
 
     def set_value(self, value):
         self.lineedit.setText(value)
 
     def get_value(self):
-        return self.lineedit.text()
+        return str(self.lineedit.text())
 
-    def update(self, text):
-        self.sig_param_updated.emit(self.get_value())
+    def update(self):
+        self.emit_update()
 
 
 from matplotlib.backends.qt_editor.formlayout import ColorLayout, to_qcolor
+
+class ColorLayoutEmitting(ColorLayout):
+    sig_color_updated = pyqtSignal()
+    def update_text(self, color):
+        super(ColorLayoutEmitting, self).update_text(color)
+        self.sig_color_updated.emit()
+
 
 class ColorParam(ParamWidget):
     def __init__(self, name, props):
         super(ColorParam, self).__init__(name, props)
         colorstr = props['default']
         self.setLayout(
-            ColorLayout(to_qcolor(colorstr))
+            ColorLayoutEmitting(to_qcolor(colorstr))
         )
+        self.layout().sig_color_updated.connect(self.emit_update)
 
     def set_value(self, value):
         self.layout().update_text(to_qcolor(value))
         self.layout().update_color()
 
     def get_value(self):
-        return self.layout().text()
-
-    def update_text(self, color):
-        super(ColorParam, self).__init__(color)
-        self.sig_param_updated.emit(self.get_value())
+        return str(self.layout().text())
 
 
 class SliderParam(ParamWidget):
@@ -450,15 +483,13 @@ class SliderParam(ParamWidget):
         factored = value * 100
         if factored > self.slider.maximum():
             slider.setMaximum(factored)
-#         logger.debug('updating slider %s', value)
         self.slider.setValue(factored)
 
     def on_slider_changed(self, val):
         text = "%.2f" % self.get_value()
         if str(self.value_edit.text()) != text:
-#             logger.debug('not equal text %s %s', self.value_edit.text(), text)
             self.value_edit.setText(text)
-        self.sig_param_updated.emit(self.get_value())
+        self.emit_update()
 
     def on_box_changed(self):
         text = self.value_edit.text()
