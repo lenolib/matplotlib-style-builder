@@ -20,7 +20,7 @@ from PyQt4.QtGui import (
     QComboBox,
     QLineEdit,
     QSlider,
-    
+
 )
 
 def get_reasonable_range_limits(value):
@@ -71,13 +71,13 @@ class ComboboxParam(ParamWidget):
         )
         assert str(props['default']) in self.choices
         self.combobox.addItems(self.choices.keys())
-        self.combobox.setCurrentIndex(
-            self.choices.keys().index(str(props['default']))
-        )
+        self.set_value(str(props['default']))
         self.combobox.currentIndexChanged.connect(self.update)
 
     def set_value(self, value):
-        self.combobox.setText(value)
+        self.combobox.setCurrentIndex(
+            self.choices.keys().index(str(value))
+        )
 
     def get_value(self):
         return self.choices[str(self.combobox.currentText())]

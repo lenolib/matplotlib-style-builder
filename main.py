@@ -2,9 +2,11 @@ from __future__ import print_function, division
 
 import os
 import sys
+import re
 
 from collections import OrderedDict
 from operator import itemgetter
+from itertools import chain
 
 import yaml
 
@@ -58,6 +60,7 @@ from PyQt4.QtGui import (
     QComboBox,
     QFormLayout,
     QScrollArea,
+    QPushButton,
 )
 
 from param_widgets import ComboboxParam, TextParam, SliderParam, ColorParam
@@ -103,7 +106,7 @@ def test():
         ),
         data=[0, 100,  10, 100,  10,  10]
     ).resample('1s').mean().ffill()
-    
+
 
     def my_plot(fig):
         ax = fig.add_subplot(121)
@@ -129,7 +132,6 @@ class ParamTree(QWidget):
         self.setLayout(QHBoxLayout())
         self.tw = QTreeWidget(self)
         self.tw.setMinimumWidth(100)
-        self.last_selected = None
         self.layout().addWidget(self.tw, stretch=2)
         self.show()
         self.changed = {}
@@ -138,48 +140,76 @@ class ParamTree(QWidget):
         self.fig_widget.setMinimumSize(600, 400)
         self.fig_widget.setLayout(QVBoxLayout())
         self.fig_widget.show()
+        self.prop_frame = QFrame()
+        self.prop_frame.setLayout( QVBoxLayout() )
+        self.prop_frame.layout().addStretch()
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidget(self.prop_frame)
+        self.scroll_area.setWidgetResizable(True)
+        self.layout().addWidget(self.scroll_area, stretch=10)
         self.prop_widgets = {}
+        with open('rcParams.yaml') as fh:
+            self.categorized_params = yaml.safe_load(fh)
+        self.params = dict(chain.from_iterable(
+            [subdict.items() for subdict in self.categorized_params.values()]
+        ))
+        self.currently_displayed = []
 
     def build_tree(self):
-        with open('rcParams.yaml') as fh:
-            self.params = yaml.safe_load(fh)
-
-        for category, pdict in sorted(self.params.items()):
-            top_item = QTreeWidgetItem()
+        for category, pdict in sorted(self.categorized_params.items()):
+            top_item = QTreeWidgetItem([category])
             self.tw.addTopLevelItem(top_item)
-            prop_widget = self.create_prop_widgets(pdict)
-            scroll_area = QScrollArea()
-            scroll_area.setWidget(prop_widget)
-            scroll_area.setWidgetResizable(True)
-            top_item.treeWidget().setItemWidget(top_item, 0, QLabel(category))
-            scroll_area.hide()
-            self.layout().addWidget(scroll_area, stretch=10)
-            top_item.prop_widget = prop_widget
-            top_item.scroll_area = scroll_area
-            self.prop_widgets[category] = prop_widget
-
         self.tw.itemSelectionChanged.connect(self.tree_item_selected)
-        axes_idx = sorted(self.params).index('axes')
+        axes_idx = sorted(self.categorized_params).index('axes')
         self.tw.setCurrentIndex(
             self.tw.model().index(axes_idx, 0)
         )
         self.plot_with_changed()
 
+    def params_matching(self, substr=None, regex=None):
+        if regex is None:
+            assert substr is not None
+            regex = '.*{}.*'.format(re.escape(substr))
+        logger.debug('Matching params to "%s"', regex)
+        compiled = re.compile(regex)
+        matching = [p for p in self.params.keys() if compiled.search(p)]
+
+        return matching
+
+    def display_list(self, params):
+        self.hide_all_current_params()
+        logger.debug('Displaying %s', params)
+        for param in params[::-1]:  # Reverse because inserting at top
+            assert param in self.params
+            if param not in self.prop_widgets:
+                self.prop_widgets[param] = self.widget_from_prop(
+                    param,
+                    self.params[param]
+                )
+            # Inserting to keep spacer at bottom
+            self.prop_frame.layout().insertWidget(0, self.prop_widgets[param])
+            self.prop_widgets[param].show()
+        self.currently_displayed = [self.prop_widgets[x] for x in params]
+
+    def hide_all_current_params(self):
+        # TODO should probably use a formlayout and properly remove / add
+        # widgets in order to have control of order
+        for widg in self.currently_displayed:
+            widg.hide()
+
     def tree_item_selected(self):
-        if hasattr(self.last_selected, 'prop_widget'):
-            self.last_selected.scroll_area.hide()
         selected = self.tw.selectedItems()
         logger.debug('Selected %s', selected)
         if len(selected) > 1:
             logger.debug('multiple items selected - no action')
             return
         else:
-            selected = selected[0]
-        if hasattr(selected, 'prop_widget'):
-            self.last_selected = selected
-            selected.scroll_area.show()
-        else:
-            raise Exception('no attr')
+            selected_str = str(selected[0].text(0))
+            matching = self.params_matching(
+                # Matches 'sup', 'sub.sub', but not 'superduper'
+                regex='^{}(\.?$|\.\w.*$)'.format(re.escape(selected_str))
+            )
+            self.display_list(matching)
 
     def plot_with_changed(self):
         with matplotlib.rc_context(self.changed):
@@ -194,6 +224,27 @@ class ParamTree(QWidget):
     def value_updated(self, name, value):
         self.changed[name] = value
         self.plot_with_changed()
+
+    def widget_from_prop(self, name, prop):
+        try:
+            widget = self.construct_widget(name, prop)
+        except Exception:
+            logger.exception('%s %s', name, prop)
+            raise
+        if prop.get('help'):
+            help_label = QLabel('<b>Help:</b> ' + prop['help'])
+            help_label.setMinimumWidth(200)
+            help_label.setWordWrap(True)
+            widget.layout().addWidget(help_label, stretch=2)
+        button = QPushButton(name)
+        button.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Maximum)
+        widget.layout().insertWidget(0, button)
+        button.clicked.connect(widget.reset_value)
+        widget.sig_param_updated.connect(self.value_updated)
+        if hasattr(widget.layout, 'addStretch'):
+            widget.layout().addStretch()
+
+        return widget
 
     def construct_widget(self, name, prop):
         if prop['type'] == 'string':
@@ -215,31 +266,6 @@ class ParamTree(QWidget):
             widget = ColorParam(name, prop)
 
         return widget
-
-    def create_prop_widgets(self, props):
-        container_widget = QFrame()
-        formlayout = QFormLayout()
-        container_widget.setLayout(formlayout) 
-        formlayout.setVerticalSpacing(0)
-        formlayout.setFormAlignment(Qt.AlignLeft)
-        for name, prop in sorted(props.items()):
-            try:
-                widget = self.construct_widget(name, prop)
-            except Exception:
-                logger.exception('%s %s', name, prop)
-                raise
-            if prop.get('help'):
-                help_label = QLabel('<b>Help:</b> ' + prop['help'])
-                help_label.setMinimumWidth(200)
-                help_label.setWordWrap(True)
-                widget.layout().addWidget(help_label, stretch=2)
-            widget.sig_param_updated.connect(self.value_updated)
-            if hasattr(widget.layout, 'addStretch'):
-                widget.layout().addStretch()
-            
-            formlayout.addRow(name, widget)
-
-        return container_widget
 
 
 class Tree(QWidget):
@@ -419,7 +445,7 @@ def get_ipython_if_any():
     return get_ipython()
 
 
-if __name__ == '__main__':
+def main():
     interactive = True
     if interactive:
         shell = get_ipython_if_any()
@@ -433,3 +459,5 @@ if __name__ == '__main__':
     sys.exit(app.exec_())
 
 
+if __name__ == '__main__':
+    main()
