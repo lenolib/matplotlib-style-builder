@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+from __future__ import print_function, division, unicode_literals
 
 from collections import OrderedDict
 
@@ -70,13 +70,13 @@ class ComboboxParam(ParamWidget):
             (str(choice), choice) for choice in options
         )
         assert str(props['default']) in self.choices
-        self.combobox.addItems(self.choices.keys())
+        self.combobox.addItems(list(self.choices.keys()))
         self.set_value(str(props['default']))
         self.combobox.currentIndexChanged.connect(self.update)
 
     def set_value(self, value):
         self.combobox.setCurrentIndex(
-            self.choices.keys().index(str(value))
+            list(self.choices.keys()).index(str(value))
         )
 
     def get_value(self):
@@ -119,6 +119,10 @@ class ColorLayoutEmitting(ColorLayout):
         super(ColorLayoutEmitting, self).update_text(color)
         self.sig_color_updated.emit()
 
+    def update_color(self):
+        color = str(self.text())  # Fixed, original does not cast from QString 
+        qcolor = to_qcolor(color)
+        self.colorbtn.color = qcolor  # defaults to black if not qcolor.isValid()
 
 class ColorParam(ParamWidget):
     def __init__(self, name, props):

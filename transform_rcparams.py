@@ -1,4 +1,4 @@
-from __future__ import print_function, division
+from __future__ import print_function, division, unicode_literals
 
 from numbers import Number
 from collections import defaultdict, OrderedDict
@@ -20,12 +20,12 @@ def get_rcparams_types(rcfile):
     """
     rc = dict(mpl.rcParams)
     helps = scrape_help_for_param(rcfile)
-    for k,v in rc.iteritems():
+    for k,v in rc.items():
         if isinstance(v, bool):
             rc[k] = {'type': 'bool', 'default': v}
         elif isinstance(v, Number):
             rc[k] = {'type': 'float', 'default': v}
-        elif isinstance(v, basestring):
+        elif isinstance(v, str):
             rc[k] = {'type': 'colorstring' if 'color' in k else 'string',
                      'default': v,
                      'options': []}
@@ -46,7 +46,7 @@ def categorize_rc_params(rc):
     Split by first dot and put first part as key in an ordered dict.
     """
     by_category = defaultdict(OrderedDict)
-    for key, val in rc.iteritems():
+    for key, val in rc.items():
         by_category[ key.split('.')[0] ][key] = val
     return by_category
 
@@ -63,17 +63,15 @@ def scrape_help_for_param(rcfile):
         {paramname: helptext}
     
     """
+    discard_falsy = lambda seq: [x for x in seq if x]
     with open(rcfile) as fh:
         contents = fh.read()
     wo_comments = re.sub(r'^#[# \n].*', '', contents, flags=re.MULTILINE)
     wo_lead_hash = re.sub(r'^#', r'\n', wo_comments, flags=re.M)
-    raw_param_lines = filter(
-        None,
-        wo_lead_hash.split('\n\n')
-    )
+    raw_param_lines = discard_falsy(wo_lead_hash.split('\n\n'))
     helps = {}
     for line in raw_param_lines:
-        parts = filter(None, line.split('#'))
+        parts = discard_falsy(line.split('#'))
         param = parts[0].split(':')[0].strip()
         if not param:
             print('Empty param: %s' %line.replace('\n', '\\n'))
