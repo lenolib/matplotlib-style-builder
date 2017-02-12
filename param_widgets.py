@@ -2,26 +2,15 @@ from __future__ import print_function, division, unicode_literals
 
 from collections import OrderedDict
 
+from matplotlib.backends.qt_compat import QtWidgets, QtCore, is_pyqt5
+
 from matplotlib.backends.qt_editor.formlayout import ColorLayout, to_qcolor
 
-from PyQt4.QtCore import (
-    pyqtSignal,
-    Qt,
-)
 
-from PyQt4 import QtCore
-from PyQt4 import QtGui
-
-from PyQt4.QtGui import (
-    QLabel,
-    QFrame,
-    QVBoxLayout,
-    QHBoxLayout,
-    QComboBox,
-    QLineEdit,
-    QSlider,
-
-)
+if is_pyqt5():
+    from PyQt5.QtCore import pyqtSignal, Qt 
+else:
+    from PyQt4.QtCore import pyqtSignal, Qt
 
 def get_reasonable_range_limits(value):
     if value < 0:
@@ -36,7 +25,7 @@ def get_reasonable_range_limits(value):
     return limits
 
 
-class ParamWidget(QFrame):
+class ParamWidget(QtWidgets.QFrame):
     sig_param_updated = pyqtSignal(object, object)
 
     def __init__(self, name, props):
@@ -62,8 +51,8 @@ class ParamWidget(QFrame):
 class ComboboxParam(ParamWidget):
     def __init__(self, name, props): # TODO could calculate default index automatically if non-integer supplied
         super(ComboboxParam, self).__init__(name, props)
-        self.setLayout( QHBoxLayout() )
-        self.combobox = QComboBox()
+        self.setLayout( QtWidgets.QHBoxLayout() )
+        self.combobox = QtWidgets.QComboBox()
         self.layout().addWidget(self.combobox)
         options = [False, True] if props['type'] == 'bool' else props['options']
         self.choices = OrderedDict(
@@ -95,8 +84,8 @@ class ComboboxParam(ParamWidget):
 class TextParam(ParamWidget):
     def __init__(self, name, props, default=None):
         super(TextParam, self).__init__(name, props)
-        self.setLayout( QHBoxLayout() )
-        self.lineedit = QLineEdit()
+        self.setLayout( QtWidgets.QHBoxLayout() )
+        self.lineedit = QtWidgets.QLineEdit()
         self.layout().addWidget(self.lineedit)
         self.set_value(
             default or str(props['default'])  # cast because value could be none
@@ -144,17 +133,17 @@ class ColorParam(ParamWidget):
 class SliderParam(ParamWidget):
     def __init__(self, name, props):
         super(SliderParam, self).__init__(name, props)
-        self.setLayout( QHBoxLayout() )
-        self.slider = QSlider()
+        self.setLayout( QtWidgets.QHBoxLayout() )
+        self.slider = QtWidgets.QSlider()
         self.slider.setMouseTracking(False)
         self.slider.setProperty("value", 0)
         self.slider.setOrientation(QtCore.Qt.Horizontal)
         self.slider.setInvertedAppearance(False)
         self.slider.setInvertedControls(False)
-        self.slider.setTickPosition(QSlider.TicksAbove)
+        self.slider.setTickPosition(QtWidgets.QSlider.TicksAbove)
         self.slider.setTickInterval(5)
 
-        self.value_edit = QLineEdit('0')
+        self.value_edit = QtWidgets.QLineEdit('0')
         self.value_edit.setMinimumSize(QtCore.QSize(20, 0))
         self.value_edit.setMaximumWidth(100)
         self.value_edit.setAlignment(

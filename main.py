@@ -8,65 +8,37 @@ from collections import OrderedDict
 from operator import itemgetter
 from itertools import chain
 
+# 3rd-party library imports
 import yaml
 
+
+# Matplotlib and Qt imports
 import matplotlib
 import matplotlib as mpl
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+
 from matplotlib.figure import Figure
 from matplotlib.backend_bases import key_press_handler
+from matplotlib.backends.qt_compat import QtWidgets, QtCore, QtGui, is_pyqt5
 
-from PyQt4 import QtCore
-from PyQt4 import QtGui
+if is_pyqt5():
+    from PyQt5.QtCore import pyqtSignal, Qt 
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg \
+                                                            as FigureCanvas
+    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT \
+                                                            as NavigationToolbar
+else:
+    from PyQt4.QtCore import pyqtSignal, Qt
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg \
+                                                            as FigureCanvas
+    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT \
+                                                            as NavigationToolbar
 
-from PyQt4.QtCore import (
-    pyqtSignal,
-    Qt,
-    QObject,
-    pyqtBoundSignal,
-    QTimer,
-    QSize
-)
 
-from PyQt4.QtGui import (
-    QApplication,
-    QAction,
-    QLabel,
-    QMainWindow,
-    QIcon,
-    qApp,
-    QGridLayout,
-    QListView,
-    QStandardItem,
-    QStandardItemModel,
-    QColor,
-    QAbstractItemView,
-    QWidget,
-    QKeySequence,
-    QSplitter,
-    QHBoxLayout,
-    QFrame,
-    QTableView,
-    QVBoxLayout,
-    QHBoxLayout,
-    QSpacerItem,
-    QTreeView,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QSlider,
-    QLineEdit,
-    QCompleter,
-    QComboBox,
-    QFormLayout,
-    QScrollArea,
-    QPushButton,
-)
-
+# Project imports
 from param_widgets import ComboboxParam, TextParam, SliderParam, ColorParam
 
 
-
+# Logging
 import logging
 if not logging.getLogger().handlers:
     logging.basicConfig(
@@ -90,7 +62,7 @@ linestyle_dict =  OrderedDict([
 
 from matplotlib.markers import MarkerStyle
 markernames_inverted = {
-    "{} ('{}')".format(v,k): k for (k, v) in MarkerStyle.markers.iteritems()
+    "{} ('{}')".format(v, k): k for (k, v) in MarkerStyle.markers.items()
 }
 markernames_inverted['nothing'] = 'None'
 
@@ -125,25 +97,25 @@ def test():
 
 
 
-class ParamTree(QWidget):
+class ParamTree(QtWidgets.QWidget):
     def __init__(self, plot_callback=None):
         super(ParamTree, self).__init__()
         self.setMinimumSize(600, 400)
-        self.setLayout(QHBoxLayout())
-        self.tw = QTreeWidget(self)
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.tw = QtWidgets.QTreeWidget(self)
         self.tw.setMinimumWidth(100)
         self.layout().addWidget(self.tw, stretch=2)
         self.show()
         self.changed = {}
         self.plot_callback = plot_callback
-        self.fig_widget = QWidget()
+        self.fig_widget = QtWidgets.QWidget()
         self.fig_widget.setMinimumSize(600, 400)
-        self.fig_widget.setLayout(QVBoxLayout())
+        self.fig_widget.setLayout(QtWidgets.QVBoxLayout())
         self.fig_widget.show()
-        self.prop_frame = QFrame()
-        self.prop_frame.setLayout( QVBoxLayout() )
+        self.prop_frame = QtWidgets.QFrame()
+        self.prop_frame.setLayout( QtWidgets.QVBoxLayout() )
         self.prop_frame.layout().addStretch()
-        self.scroll_area = QScrollArea()
+        self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidget(self.prop_frame)
         self.scroll_area.setWidgetResizable(True)
         self.layout().addWidget(self.scroll_area, stretch=10)
@@ -157,7 +129,7 @@ class ParamTree(QWidget):
 
     def build_tree(self):
         for category, pdict in sorted(self.categorized_params.items()):
-            top_item = QTreeWidgetItem([category])
+            top_item = QtWidgets.QTreeWidgetItem([category])
             self.tw.addTopLevelItem(top_item)
         self.tw.itemSelectionChanged.connect(self.tree_item_selected)
         axes_idx = sorted(self.categorized_params).index('axes')
@@ -232,12 +204,13 @@ class ParamTree(QWidget):
             logger.exception('%s %s', name, prop)
             raise
         if prop.get('help'):
-            help_label = QLabel('<b>Help:</b> ' + prop['help'])
+            help_label = QtWidgets.QLabel('<b>Help:</b> ' + prop['help'])
             help_label.setMinimumWidth(200)
             help_label.setWordWrap(True)
             widget.layout().addWidget(help_label, stretch=2)
-        button = QPushButton(name)
-        button.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Maximum)
+        button = QtWidgets.QPushButton(name)
+        button.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
+                             QtWidgets.QSizePolicy.Maximum)
         widget.layout().insertWidget(0, button)
         button.clicked.connect(widget.reset_value)
         widget.sig_param_updated.connect(self.value_updated)
@@ -268,7 +241,7 @@ class ParamTree(QWidget):
         return widget
 
 
-class Tree(QWidget):
+class Tree(QtWidgets.QWidget):
     def __init__(self):
         super(Tree, self).__init__()
         self.tw = QTreeWidget()
@@ -279,7 +252,7 @@ class Tree(QWidget):
 
     def new_tree(self, obj):
         def add_top_level_item(tree_widget, item_obj, name):
-            top_item = QTreeWidgetItem()
+            top_item = QtWidgets.QtWidgets.QTreeWidget()
             top_item.target_obj = item_obj
             tree_widget.addTopLevelItem(top_item)
             logger.debug('Adding top level item: %s : %s', name, item_obj)
@@ -329,10 +302,10 @@ class Tree(QWidget):
         # Add property-widget children if supported class
         if type(obj) not in supported_classes:
             return None
-        scroll_area = QScrollArea()
-        container_widget = QWidget()
+        scroll_area = QtWidgets.QScrollArea()
+        container_widget = QtWidgets.QWidget()
         scroll_area.setWidget(container_widget)
-        container_widget.setLayout( QVBoxLayout() )
+        container_widget.setLayout( QtWidgets.QVBoxLayout() )
         for propname, factory in property_2_widget_factory.iteritems():
             if hasattr(obj, 'get_' + propname):
                 container_widget.layout().addWidget(factory(obj))
@@ -370,7 +343,11 @@ def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
     logger.debug('Populating from obj: %s', obj)
     if not text_already_set:
         text = format_obj(obj, prefix)
-        tree_item.treeWidget().setItemWidget(tree_item, 0, QLabel(text))
+        tree_item.treeWidget().setItemWidget(
+            tree_item,
+            0,
+            QtWidgets.QLabel(text)
+        )
         logger.debug('Setting text label: %s', text)
 
     if curr_depth >= expand_n_levels:
@@ -382,7 +359,7 @@ def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
         else:
             item_iter = enumerate(obj)
         for key, item in item_iter:
-            child_item = QTreeWidgetItem()
+            child_item = QtWidgets.QTreeWidgetItem()
             child_item.target_obj = item
             tree_item.addChild(child_item)
             populate_tree_item(child_item,
@@ -395,7 +372,7 @@ def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
         for attrname in dir(obj):
             if attrname.startswith('_'):
                 continue
-            child_item = QTreeWidgetItem()
+            child_item = QtWidgets.QTreeWidgetItem()
             item = getattr(obj, attrname)
             child_item.target_obj = item
             tree_item.addChild(child_item)
@@ -407,7 +384,7 @@ def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
                 curr_depth=curr_depth + 1
             )
     else:
-        child_item = QTreeWidgetItem()
+        child_item = QtWidgets.QTreeWidgetItem()
         child_item.target_obj = obj
         tree_item.addChild(child_item)
 
@@ -452,8 +429,9 @@ def main():
         if shell and not shell._inputhook.__module__.endswith('.qt'):
             shell.enable_gui('qt')
             logger.info("Enabled 'qt' gui in current ipython shell")
-    maybe_existing_app = QApplication.instance()
-    app = maybe_existing_app or QApplication(sys.argv)
+    maybe_existing_app = QtWidgets.QApplication.instance()
+    app = maybe_existing_app or QtWidgets.QApplication(sys.argv)
+    from matplotlib.backends.qt_compat import QtGui
     QtGui.qApp = app
     pt = test()
     sys.exit(app.exec_())
