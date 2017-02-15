@@ -6,9 +6,11 @@ from matplotlib.backends.qt_compat import QtWidgets, QtCore, is_pyqt5
 
 from matplotlib.backends.qt_editor.formlayout import ColorLayout, to_qcolor
 
+import logging
+logger = logging.getLogger('param_widgets')
 
 if is_pyqt5():
-    from PyQt5.QtCore import pyqtSignal, Qt 
+    from PyQt5.QtCore import pyqtSignal, Qt
 else:
     from PyQt4.QtCore import pyqtSignal, Qt
 
@@ -87,16 +89,35 @@ class TextParam(ParamWidget):
         self.setLayout( QtWidgets.QHBoxLayout() )
         self.lineedit = QtWidgets.QLineEdit()
         self.layout().addWidget(self.lineedit)
-        self.set_value(
-            default or str(props['default'])  # cast because value could be none
-        )
+        self.set_value(default or props['default'])
         self.lineedit.editingFinished.connect(self.update)
 
     def set_value(self, value):
+        if self.props['type'] == 'list':
+            if not isinstance(value, list):
+                raise ValueError(
+                    'expected list, got: %s (name: %s)', value, self.name
+                )
+            elif self.props['list_type'] == 'float':
+                value = ', '.join(map(str, value))
+            elif self.props['list_type'] == 'string':
+                value = ', '.join(value)
+            else:
+                raise ValueError('unknown list_type for param %s' %self.name)
+        if not isinstance(value, str):
+            logger.debug('Converting %s value to str: %s', self.name, value)
+            value = str(value)
         self.lineedit.setText(value)
 
     def get_value(self):
-        return str(self.lineedit.text())
+        text = str(self.lineedit.text())
+        if self.props['type'] == 'list':
+            if self.props['list_type'] == 'float':
+                return list(map(float, text.split(', ')))
+            elif self.props['list_type'] == 'string':
+                return [part.strip() for part in text.split(',')]
+        else:
+            return text
 
     def update(self):
         self.emit_update()
@@ -109,7 +130,7 @@ class ColorLayoutEmitting(ColorLayout):
         self.sig_color_updated.emit()
 
     def update_color(self):
-        color = str(self.text())  # Fixed, original does not cast from QString 
+        color = str(self.text())  # Fixed, original does not cast from QString
         qcolor = to_qcolor(color)
         self.colorbtn.color = qcolor  # defaults to black if not qcolor.isValid()
 

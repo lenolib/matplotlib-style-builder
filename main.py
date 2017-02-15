@@ -15,22 +15,23 @@ import yaml
 # Matplotlib and Qt imports
 import matplotlib
 import matplotlib as mpl
+import matplotlib.pyplot
 
 from matplotlib.figure import Figure
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.backends.qt_compat import QtWidgets, QtCore, QtGui, is_pyqt5
 
 if is_pyqt5():
-    from PyQt5.QtCore import pyqtSignal, Qt 
+    from PyQt5.QtCore import pyqtSignal, Qt
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg \
                                                             as FigureCanvas
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT \
                                                             as NavigationToolbar
 else:
     from PyQt4.QtCore import pyqtSignal, Qt
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg \
+    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg \
                                                             as FigureCanvas
-    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT \
+    from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT \
                                                             as NavigationToolbar
 
 
@@ -95,37 +96,83 @@ def test():
     pt.build_tree()
     return pt
 
+def QString2pyunicode(qs):
+    if not isinstance(qs, str):
+        return str(qs.toAscii()).decode('utf8')
+    else:
+        return qs
 
 
 class ParamTree(QtWidgets.QWidget):
     def __init__(self, plot_callback=None):
         super(ParamTree, self).__init__()
         self.setMinimumSize(600, 400)
-        self.setLayout(QtWidgets.QHBoxLayout())
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        self.top = QtWidgets.QWidget()
+        self.top.setLayout( QtWidgets.QHBoxLayout() )
+        self.layout().addWidget(self.top)
+
+        self.top.layout().addWidget(QtWidgets.QLabel('Filter:'))
+        self.filtration_field = QtWidgets.QLineEdit()
+        self.top.layout().addWidget(self.filtration_field)
+        self.filtration_field.textChanged.connect(self.filtration_changed)
+
+        self.reset_all_button = QtWidgets.QPushButton('Reset all')
+        self.top.layout().addWidget(self.reset_all_button)
+        self.reset_all_button.clicked.connect(self.reset_all)
+
+        self.show_changed_button = QtWidgets.QPushButton('Show changed')
+        self.top.layout().addWidget(self.show_changed_button)
+        self.show_changed_button.clicked.connect(
+            lambda: self.display_list(sorted(self.changed))
+        )
+
+        self.mplstyle_combobox = QtWidgets.QComboBox()
+        self.top.layout().addWidget(self.mplstyle_combobox)
+        self.mplstyle_combobox.addItems(
+            ['<Load mplstyle>'] + mpl.pyplot.style.available
+        )
+        self.mplstyle_combobox.currentIndexChanged.connect(
+            lambda _dummy: self.load_mplstyle(
+                str(self.mplstyle_combobox.currentText())
+            )
+        )
+
+        self.lower_frame = QtWidgets.QFrame()
+        self.lower_frame.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().addWidget(self.lower_frame)
+
         self.tw = QtWidgets.QTreeWidget(self)
         self.tw.setMinimumWidth(100)
-        self.layout().addWidget(self.tw, stretch=2)
-        self.show()
-        self.changed = {}
-        self.plot_callback = plot_callback
+        self.lower_frame.layout().addWidget(self.tw, stretch=2)
+
         self.fig_widget = QtWidgets.QWidget()
         self.fig_widget.setMinimumSize(600, 400)
         self.fig_widget.setLayout(QtWidgets.QVBoxLayout())
         self.fig_widget.show()
+
         self.prop_frame = QtWidgets.QFrame()
         self.prop_frame.setLayout( QtWidgets.QVBoxLayout() )
         self.prop_frame.layout().addStretch()
+
         self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidget(self.prop_frame)
         self.scroll_area.setWidgetResizable(True)
-        self.layout().addWidget(self.scroll_area, stretch=10)
+        self.lower_frame.layout().addWidget(self.scroll_area, stretch=10)
+
+        self.plot_callback = plot_callback
         self.prop_widgets = {}
+        self.prevent_figure_update = False
         with open('rcParams.yaml') as fh:
             self.categorized_params = yaml.safe_load(fh)
         self.params = dict(chain.from_iterable(
             [subdict.items() for subdict in self.categorized_params.values()]
         ))
         self.currently_displayed = []
+        self.changed = {}
+
+        self.show()
 
     def build_tree(self):
         for category, pdict in sorted(self.categorized_params.items()):
@@ -136,6 +183,40 @@ class ParamTree(QtWidgets.QWidget):
         self.tw.setCurrentIndex(
             self.tw.model().index(axes_idx, 0)
         )
+        self.plot_with_changed()
+
+    def filtration_changed(self, text):
+        spaced_separated = QString2pyunicode(text).split(' ')
+        if not spaced_separated:
+            return
+        matching_first = self.params_matching(substr=spaced_separated[0])
+        filtered_final = []
+        for item in matching_first:
+            if all(tok in item for tok in spaced_separated[1:]):
+                filtered_final.append(item)
+            else:
+                continue
+        self.display_list(
+            sorted(filtered_final)
+        )
+
+    def load_mplstyle(self, name):
+        rcparams = mpl.pyplot.style.library.get(name)
+        if rcparams is None:
+            logger.debug('mplstyle not found %s', name)
+            return
+        any_unrecognized = set(rcparams) - set(self.params)
+        if any_unrecognized:
+            logger.error('Unrecognized params in mplstyle %s: %s',
+                          name,
+                          any_unrecognized)
+            return
+        self.display_list(list(rcparams))
+        self.prevent_figure_update = True  # FIXME this should be a lock
+        for param, value in rcparams.items():
+            logger.debug('Loaded from style %s: (%s: %s)', name, param, value)
+            self.prop_widgets[param].set_value(value)
+        self.prevent_figure_update = False
         self.plot_with_changed()
 
     def params_matching(self, substr=None, regex=None):
@@ -166,8 +247,9 @@ class ParamTree(QtWidgets.QWidget):
     def hide_all_current_params(self):
         # TODO should probably use a formlayout and properly remove / add
         # widgets in order to have control of order
-        for widg in self.currently_displayed:
-            widg.hide()
+        for idx in range(self.prop_frame.layout().count() - 1): # sub -1 b/c spacer
+            child = self.prop_frame.layout().takeAt(0)
+            child.widget().hide()
 
     def tree_item_selected(self):
         selected = self.tw.selectedItems()
@@ -184,6 +266,8 @@ class ParamTree(QtWidgets.QWidget):
             self.display_list(matching)
 
     def plot_with_changed(self):
+        if self.prevent_figure_update:
+            return
         with matplotlib.rc_context(self.changed):
             logger.debug('Updating plot')
             self.fig = Figure()
@@ -196,6 +280,18 @@ class ParamTree(QtWidgets.QWidget):
     def value_updated(self, name, value):
         self.changed[name] = value
         self.plot_with_changed()
+
+    def reset_all(self):
+        self.prevent_figure_update = True
+        for param in list(self.changed):
+            self.reset_param(param)
+        self.prevent_figure_update = False
+        self.plot_with_changed()
+
+    def reset_param(self, param):
+        self.prop_widgets[param].reset_value()
+        if param in self.changed:
+            self.changed.pop(param)
 
     def widget_from_prop(self, name, prop):
         try:
@@ -212,7 +308,7 @@ class ParamTree(QtWidgets.QWidget):
         button.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
                              QtWidgets.QSizePolicy.Maximum)
         widget.layout().insertWidget(0, button)
-        button.clicked.connect(widget.reset_value)
+        button.clicked.connect(lambda: self.reset_param(name))
         widget.sig_param_updated.connect(self.value_updated)
         if hasattr(widget.layout, 'addStretch'):
             widget.layout().addStretch()
@@ -230,9 +326,7 @@ class ParamTree(QtWidgets.QWidget):
         elif prop['type'] == 'float':
             widget = SliderParam(name, prop)
         elif prop['type'] == 'list':
-            widget = TextParam(name,
-                                prop,
-                                default=', '.join(map(str, prop['default'])))
+            widget = TextParam(name, prop)
         elif prop['type'] == 'bool':
             widget = ComboboxParam(name, prop)
         elif prop['type'] == 'colorstring':
@@ -422,7 +516,7 @@ def get_ipython_if_any():
     return get_ipython()
 
 
-def main():
+def main(call_exec=False):
     interactive = True
     if interactive:
         shell = get_ipython_if_any()
@@ -434,8 +528,10 @@ def main():
     from matplotlib.backends.qt_compat import QtGui
     QtGui.qApp = app
     pt = test()
-    sys.exit(app.exec_())
+    if call_exec:
+        sys.exit(app.exec_())
+    return pt
 
 
 if __name__ == '__main__':
-    main()
+    main(call_exec=True)
