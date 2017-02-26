@@ -100,6 +100,8 @@ class TextParam(ParamWidget):
                 )
             elif self.props['list_type'] == 'float':
                 value = ', '.join(map(str, value))
+            elif self.props['list_type'] == 'integer':
+                value = ', '.join(map(str, map(int,value)))
             elif self.props['list_type'] == 'string':
                 value = ', '.join(value)
             else:
@@ -114,6 +116,8 @@ class TextParam(ParamWidget):
         if self.props['type'] == 'list':
             if self.props['list_type'] == 'float':
                 return list(map(float, text.split(', ')))
+            elif self.props['list_type'] == 'integer':
+                return list(map(int, text.split(', ')))
             elif self.props['list_type'] == 'string':
                 return [part.strip() for part in text.split(',')]
         else:

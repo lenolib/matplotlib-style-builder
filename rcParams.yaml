@@ -97,7 +97,7 @@ axes:
     default: [-7, 7]
     help: use scientific notation if log10 of the axis range is smaller than the first
       or larger than the second
-    list_type: float
+    list_type: integer
     type: list
   axes.formatter.offset_threshold: {default: 4, help: 'When useoffset is True, the
       offset will be used when it can remove at least this number of significant digits

@@ -130,20 +130,23 @@ class ParamTree(QtWidgets.QWidget):
 
         self.mplstyle_combobox = QtWidgets.QComboBox()
         self.top.layout().addWidget(self.mplstyle_combobox)
-        self.mplstyle_combobox.addItems(
-            ['<Load mplstyle>'] + mpl.pyplot.style.available
-        )
         self.mplstyle_combobox.currentIndexChanged.connect(
             lambda _dummy: self.load_mplstyle(
                 str(self.mplstyle_combobox.currentText())
             )
         )
+        self.repopulate_stylelist()
+
+        self.save_button = QtWidgets.QPushButton('Save new')
+        self.top.layout().addWidget(self.save_button)
+        self.save_button.clicked.connect(self.save_new_style)
 
         self.lower_frame = QtWidgets.QFrame()
         self.lower_frame.setLayout(QtWidgets.QHBoxLayout())
         self.layout().addWidget(self.lower_frame)
 
         self.tw = QtWidgets.QTreeWidget(self)
+        self.tw.model().setHeaderData(0, QtCore.Qt.Horizontal, 'Category')
         self.tw.setMinimumWidth(100)
         self.lower_frame.layout().addWidget(self.tw, stretch=2)
 
@@ -199,6 +202,18 @@ class ParamTree(QtWidgets.QWidget):
         self.display_list(
             sorted(filtered_final)
         )
+
+    def repopulate_stylelist(self):
+        current_choice = self.mplstyle_combobox.currentText()
+        self.mplstyle_combobox.clear()
+        mpl.pyplot.style.reload_library()
+        items = ['<Load mplstyle>'] + mpl.pyplot.style.available
+        try:
+            current_idx = items.index(str(current_choice))
+        except ValueError:
+            current_idx = 0
+        self.mplstyle_combobox.addItems(items)
+        self.mplstyle_combobox.setCurrentIndex(current_idx)
 
     def load_mplstyle(self, name):
         rcparams = mpl.pyplot.style.library.get(name)
@@ -260,13 +275,13 @@ class ParamTree(QtWidgets.QWidget):
         else:
             selected_str = str(selected[0].text(0))
             matching = self.params_matching(
-                # Matches 'sup', 'sub.sub', but not 'superduper'
+                # Matches 'sup', 'sup.sub', but not 'superduper'
                 regex='^{}(\.?$|\.\w.*$)'.format(re.escape(selected_str))
             )
             self.display_list(matching)
 
     def plot_with_changed(self):
-        if self.prevent_figure_update:
+        if self.prevent_figure_update:  # FIXME this should be a lock
             return
         with matplotlib.rc_context(self.changed):
             logger.debug('Updating plot')
@@ -280,6 +295,51 @@ class ParamTree(QtWidgets.QWidget):
     def value_updated(self, name, value):
         self.changed[name] = value
         self.plot_with_changed()
+
+    def _create_user_stylelib_directory(self):
+        user_mpl_dir = os.path.join(
+            str(QtCore.QDir.home().path()),
+            '.config/matplotlib'
+        )
+        stylelib_dir = os.path.join(user_mpl_dir, 'stylelib')
+        # Only create stylelib dir if does not exists and matplotlib dir found
+        if not os.path.exists(stylelib_dir) and os.path.exists(user_mpl_dir):
+            logger.debug('Creating stylelib directory: %s', stylelib_dir)
+            os.mkdir(stylelib_dir)
+
+    def save_new_style(self):
+        if not self.changed:
+            logger.debug('Nothing changed, nothing to save')
+            return
+        self._create_user_stylelib_directory()
+        filepath = QtWidgets.QFileDialog.getSaveFileName(
+            caption='Save new mplstyle',
+            directory=os.path.join(
+                str(QtCore.QDir.home().path()),
+                '.config/matplotlib/stylelib'
+            ),
+            filter=".mplstyle files (*.mplstyle)"
+        )
+        if not filepath:
+            logging.debug('No filepath chosen. Aborting save')
+        else:
+            filepath = str(filepath)
+        if not filepath.endswith('.mplstyle'):
+            filepath = filepath + '.mplstyle'
+        lines = []
+        for param, value in self.changed.items():
+            if value and isinstance(value, str) and value.startswith('#'):
+                value = value[1:]
+            elif isinstance(value, list):
+                if self.params[param]['list_type'] == 'integer':
+                    value = map(int, value)
+                value = ', '.join(map(str, value))
+            lines.append('{}: {}'.format(param, value))
+
+        with open(filepath, 'w') as fh:
+            fh.write('\n'.join(lines))
+
+        self.repopulate_stylelist()
 
     def reset_all(self):
         self.prevent_figure_update = True
