@@ -36,7 +36,12 @@ else:
 
 
 # Project imports
-from param_widgets import ComboboxParam, TextParam, SliderParam, ColorParam
+from mpl_style_builder.param_widgets import (
+    ComboboxParam,
+    TextParam,
+    SliderParam,
+    ColorParam,
+)
 
 
 # Logging
@@ -60,41 +65,25 @@ linestyle_dict =  OrderedDict([
     ('draw nothing', 'None'),
 ])
 
+from datetime import datetime
 
-from matplotlib.markers import MarkerStyle
-markernames_inverted = {
-    "{} ('{}')".format(v, k): k for (k, v) in MarkerStyle.markers.items()
-}
-markernames_inverted['nothing'] = 'None'
+def default_sample_plot(fig):
+    yvals = [0, 100,  10, 100,  10,  10]
+    xvals = map(
+        datetime.utcfromtimestamp,
+        [ 0,  30,  31,  45,  46, 300]
+    )
+    ax = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
+    ret = ax.plot([y**2 for y in range(9)],
+                  label='myline')
+    ax=fig.axes[0]
+#     ax.grid(True)
+    ax.legend()
+    ax.set_title('The graph title')
+    ax.set_xlabel('the xlabel')
+    ax2.plot(xvals, yvals)
 
-
-def test():
-    import pandas as pd
-    import numpy as np
-    from datetime import datetime
-    series = pd.Series(
-        index=map(
-            datetime.utcfromtimestamp,
-            [ 0,  30,  31,  45,  46, 300]
-        ),
-        data=[0, 100,  10, 100,  10,  10]
-    ).resample('1s').mean().ffill()
-
-
-    def my_plot(fig):
-        ax = fig.add_subplot(121)
-        ax2 = fig.add_subplot(122)
-        ret = ax.plot(np.arange(9)**2, label='myline')
-        ax=fig.axes[0]
-#         ax.grid(True)
-        ax.legend()
-        ax.set_title('The graph title')
-        ax.set_xlabel('the xlabel')
-        series.plot(ax=ax2)
-
-    pt = ParamTree(my_plot)
-    pt.build_tree()
-    return pt
 
 def QString2pyunicode(qs):
     if not isinstance(qs, str):
@@ -103,9 +92,9 @@ def QString2pyunicode(qs):
         return qs
 
 
-class ParamTree(QtWidgets.QWidget):
+class StyleBuilderMainWidget(QtWidgets.QWidget):
     def __init__(self, plot_callback=None):
-        super(ParamTree, self).__init__()
+        super(StyleBuilderMainWidget, self).__init__()
         self.setMinimumSize(600, 400)
         self.setLayout(QtWidgets.QVBoxLayout())
 
@@ -167,7 +156,8 @@ class ParamTree(QtWidgets.QWidget):
         self.plot_callback = plot_callback
         self.prop_widgets = {}
         self.prevent_figure_update = False
-        with open('rcParams.yaml') as fh:
+        rc_yaml_path = os.path.join(os.path.dirname(__file__), 'rcParams.yaml')
+        with open(rc_yaml_path) as fh:
             self.categorized_params = yaml.safe_load(fh)
         self.params = dict(chain.from_iterable(
             [subdict.items() for subdict in self.categorized_params.values()]
@@ -395,178 +385,6 @@ class ParamTree(QtWidgets.QWidget):
         return widget
 
 
-class Tree(QtWidgets.QWidget):
-    def __init__(self):
-        super(Tree, self).__init__()
-        self.tw = QTreeWidget()
-        self.last_selected = None
-        self.setLayout(QVBoxLayout())
-        self.layout().addWidget(self.tw)
-        self.show()
-
-    def new_tree(self, obj):
-        def add_top_level_item(tree_widget, item_obj, name):
-            top_item = QtWidgets.QtWidgets.QTreeWidget()
-            top_item.target_obj = item_obj
-            tree_widget.addTopLevelItem(top_item)
-            logger.debug('Adding top level item: %s : %s', name, item_obj)
-            populate_tree_item(
-                top_item,
-                item_obj,
-                prefix='<b>{}</b> : '.format(name),
-                expand_n_levels=1
-            )
-
-        if isinstance(obj, dict):
-            for key, val in obj.iteritems():
-                add_top_level_item(self.tw, val, key)
-        else:
-            for attrname in dir(obj):
-                if attrname.startswith('_'):
-                    continue
-                else:
-                    add_top_level_item(tw, getattr(obj, attrname), attrname)
-
-        self.tw.itemDoubleClicked.connect(expand_tree_item)
-        self.tw.itemSelectionChanged.connect(self.tree_item_selected)
-
-    def tree_item_selected(self):
-        if hasattr(self.last_selected, 'prop_widget'):
-            self.last_selected.prop_widget.hide()
-        selected = self.tw.selectedItems()
-        logger.debug('Selected %s', selected)
-        if len(selected) > 1:
-            logger.debug('multiple items selected - no action')
-            return
-        else:
-            selected = selected[0]
-        if hasattr(selected, 'prop_widget'):
-            self.last_selected = selected
-            selected.prop_widget.show()
-        else:
-            maybe_widget = self.create_prop_widgets(selected.target_obj)
-            if maybe_widget is not None:
-                selected.prop_widget = maybe_widget
-                self.layout().addWidget(selected.prop_widget)
-            else:
-                return
-
-
-    def create_prop_widgets(obj):
-        # Add property-widget children if supported class
-        if type(obj) not in supported_classes:
-            return None
-        scroll_area = QtWidgets.QScrollArea()
-        container_widget = QtWidgets.QWidget()
-        scroll_area.setWidget(container_widget)
-        container_widget.setLayout( QtWidgets.QVBoxLayout() )
-        for propname, factory in property_2_widget_factory.iteritems():
-            if hasattr(obj, 'get_' + propname):
-                container_widget.layout().addWidget(factory(obj))
-            else:
-                continue
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFixedHeight(400)
-        return scroll_area
-    #     return container_widget
-
-
-def expand_tree_item(item, col):
-    if hasattr(item, 'target_obj'):
-        obj = item.target_obj
-    else:
-        logging.debug('obj does not have target_obj attr: %s', obj)
-        return
-    if item.childCount() > 0:
-        logger.debug('Item is already expanded {}'.format(str(obj)[:100]))
-    else:
-        logger.debug('Expanding %s on tree item %s', obj, item)
-#         for attrname in dir(obj):
-#             if attrname.startswith('_'):
-#                 continue
-        populate_tree_item(
-            item,
-            item.target_obj,
-            text_already_set=True,
-            expand_n_levels=1,
-        )
-
-
-def populate_tree_item(tree_item, obj, prefix='', text_already_set=False,
-                       expand_n_levels=1, curr_depth=0):
-    logger.debug('Populating from obj: %s', obj)
-    if not text_already_set:
-        text = format_obj(obj, prefix)
-        tree_item.treeWidget().setItemWidget(
-            tree_item,
-            0,
-            QtWidgets.QLabel(text)
-        )
-        logger.debug('Setting text label: %s', text)
-
-    if curr_depth >= expand_n_levels:
-        logger.debug('Not expanding further/deeper')
-        return
-    elif isinstance(obj, (tuple, list, dict)):
-        if isinstance(obj, dict):
-            item_iter = sorted(obj.items())
-        else:
-            item_iter = enumerate(obj)
-        for key, item in item_iter:
-            child_item = QtWidgets.QTreeWidgetItem()
-            child_item.target_obj = item
-            tree_item.addChild(child_item)
-            populate_tree_item(child_item,
-                               item,
-                               prefix='<b>{}</b> : '.format(key),
-                               curr_depth=curr_depth + 1,
-                               expand_n_levels=expand_n_levels)
-    elif expand_n_levels > 0:
-        logger.debug('%s: recursing into %s', tree_item.target_obj, obj)
-        for attrname in dir(obj):
-            if attrname.startswith('_'):
-                continue
-            child_item = QtWidgets.QTreeWidgetItem()
-            item = getattr(obj, attrname)
-            child_item.target_obj = item
-            tree_item.addChild(child_item)
-            populate_tree_item(
-                child_item,
-                item,
-                prefix='<b>{}</b> : '.format(attrname),
-                expand_n_levels=expand_n_levels,
-                curr_depth=curr_depth + 1
-            )
-    else:
-        child_item = QtWidgets.QTreeWidgetItem()
-        child_item.target_obj = obj
-        tree_item.addChild(child_item)
-
-
-def format_obj(obj, prefix):
-    if isinstance(obj, (tuple, list, dict)):
-        text = '{pre}{typ} [{len}]'.format(
-            pre=prefix,
-            typ=str( type(obj) )[len("<type '"):-2],
-            len=len(obj),
-        )
-    else:
-        obj_str = str(obj)
-        obj_str = obj_str[(1 if obj_str.startswith('<') else 0):]
-        obj_str = obj_str.replace('bound method', '')
-        if ' of ' in obj_str:
-            obj_str = obj_str[:obj_str.index(' of ')]
-        if ' object at ' in obj_str:
-            obj_str = obj_str[:obj_str.index(' object at ')]
-        obj_str = obj_str[:100]
-        text = '{pre}{obj}'.format(
-            pre=prefix,
-            obj=obj_str
-        )
-
-    return text
-
-
 def get_ipython_if_any():
     try:
         from IPython import get_ipython
@@ -576,22 +394,29 @@ def get_ipython_if_any():
     return get_ipython()
 
 
-def main(call_exec=False):
-    interactive = True
-    if interactive:
-        shell = get_ipython_if_any()
-        if shell and not shell._inputhook.__module__.endswith('.qt'):
-            shell.enable_gui('qt')
-            logger.info("Enabled 'qt' gui in current ipython shell")
-    maybe_existing_app = QtWidgets.QApplication.instance()
-    app = maybe_existing_app or QtWidgets.QApplication(sys.argv)
-    from matplotlib.backends.qt_compat import QtGui
-    QtGui.qApp = app
-    pt = test()
-    if call_exec:
-        sys.exit(app.exec_())
-    return pt
+class MplStyleBuilder(object):
+    def __init__(self, plot_callback=None, call_exec=False, interactive=True):
+        if interactive:
+            shell = get_ipython_if_any()
+            if shell and not shell._inputhook.__module__.endswith('.qt'):
+                shell.enable_gui('qt')
+                logger.info("Enabled 'qt' gui in current ipython shell")
+        maybe_existing_app = QtWidgets.QApplication.instance()
+        self.app = maybe_existing_app or QtWidgets.QApplication(sys.argv)
+        from matplotlib.backends.qt_compat import QtGui
+        QtGui.qApp = self.app
+        if plot_callback is None:
+            plot_callback = default_sample_plot
+        self.builder = StyleBuilderMainWidget(plot_callback)
+        self.builder.build_tree()
+        if call_exec:
+            sys.exit(self.app.exec_())
+
+
+def main():
+    style_builder = MplStyleBuilder(call_exec=True, interactive=False)
+    return style_builder
 
 
 if __name__ == '__main__':
-    main(call_exec=True)
+    style_builder = main()
