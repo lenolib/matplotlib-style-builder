@@ -1,1 +1,1 @@
-from main import MplStyleBuilder
+from mpl_style_builder.main import MplStyleBuilder

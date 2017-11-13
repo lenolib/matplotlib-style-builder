@@ -69,10 +69,10 @@ from datetime import datetime
 
 def default_sample_plot(fig):
     yvals = [0, 100,  10, 100,  10,  10]
-    xvals = map(
+    xvals = list(map(
         datetime.utcfromtimestamp,
         [ 0,  30,  31,  45,  46, 300]
-    )
+    ))
     ax = fig.add_subplot(121)
     ax2 = fig.add_subplot(122)
     ret = ax.plot([y**2 for y in range(9)],

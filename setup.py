@@ -88,6 +88,7 @@ setup(
     ],
     install_requires=[
         'matplotlib>=1.5.0', # maybe higher required TODO: test
+        'pyyaml'
     ],
     extras_require={
     },
